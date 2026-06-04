@@ -1,0 +1,9 @@
+# Source code — lives above this directory, excluded defensively
+*.go
+go.mod
+go.sum
+# Git placeholder
+server/.gitkeep
+# Alternate-platform binaries
+server/mcp-rapidid-*
+server/*.exe
