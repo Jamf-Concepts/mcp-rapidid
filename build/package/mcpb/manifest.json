@@ -1,0 +1,121 @@
+{
+  "manifest_version": "0.3",
+  "name": "mcp-rapidid",
+  "display_name": "RapidIdentity MCP Server",
+  "version": "0.5.1",
+  "description": "MCP server for RapidIdentity — search users, manage entitlements, query groups, and read audit logs via the RapidIdentity API.",
+  "author": {
+    "name": "Ramon Ramon",
+    "url": "https://www.linkedin.com/in/ramon-ramon-25540b102"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Jamf-Concepts/mcp-rapidid.git"
+  },
+  "support": "https://github.com/Jamf-Concepts/mcp-rapidid/issues",
+  "icon": "icon.png",
+  "license": "MIT",
+  "server": {
+    "type": "binary",
+    "entry_point": "server/mcp-rapidid",
+    "mcp_config": {
+      "command": "${__dirname}/server/mcp-rapidid",
+      "args": [],
+      "env": {
+        "RI_HOST": "${user_config.ri_host}",
+        "RI_USER": "${user_config.ri_user}",
+        "RI_PASSWORD": "${user_config.ri_password}",
+        "RI_SERVICE_IDENTITY_SECRET_KEY": "${user_config.ri_service_identity_secret_key}"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "search-users",
+      "description": "Used to search basic RapidIdentity user information based on a simple criteria"
+    },
+    {
+      "name": "search-entitlements-for-user",
+      "description": "Used to search entitlements for a RapidIdentity user"
+    },
+    {
+      "name": "start-entitlement-request",
+      "description": "Starts entitlement requests for any number of users"
+    },
+    {
+      "name": "get-my-delegations",
+      "description": "Returns the delegations accessible to the authenticated user"
+    },
+    {
+      "name": "get-user-info-in-delegation",
+      "description": "Returns user profile information for users in a specific RapidIdentity delegation"
+    },
+    {
+      "name": "search-groups",
+      "description": "Searches for RapidIdentity groups matching the given criteria"
+    },
+    {
+      "name": "get-group-members",
+      "description": "Returns the members of a specific RapidIdentity group"
+    },
+    {
+      "name": "get-user-activity-from-audit-log",
+      "description": "Returns audit log activity for a specific RapidIdentity user over a given date range"
+    },
+    {
+      "name": "get-connect-projects",
+      "description": "Returns all RapidIdentity Connect projects"
+    },
+    {
+      "name": "get-connect-actions",
+      "description": "Returns Connect action sets within a project, or across all projects"
+    },
+    {
+      "name": "get-connect-action",
+      "description": "Returns a single RapidIdentity Connect action set by ID"
+    },
+    {
+      "name": "save-connect-action",
+      "description": "Saves (creates or updates) a RapidIdentity Connect action set"
+    },
+    {
+      "name": "delete-connect-action",
+      "description": "Deletes a RapidIdentity Connect action set by ID"
+    }
+  ],
+  "user_config": {
+    "ri_host": {
+      "type": "string",
+      "title": "RapidIdentity Host",
+      "description": "Hostname of your RapidIdentity instance, e.g. portal.us006-rapididentity.com. Do not include https://.",
+      "required": true
+    },
+    "ri_user": {
+      "type": "string",
+      "title": "Username",
+      "description": "RapidIdentity username for user/password authentication. Leave blank when using a service identity.",
+      "required": false,
+      "default": ""
+    },
+    "ri_password": {
+      "type": "string",
+      "title": "Password",
+      "description": "RapidIdentity password for user/password authentication. Leave blank when using a service identity.",
+      "sensitive": true,
+      "required": false,
+      "default": ""
+    },
+    "ri_service_identity_secret_key": {
+      "type": "string",
+      "title": "Service Identity Secret Key",
+      "description": "Service identity secret key. Takes precedence over username/password when set.",
+      "sensitive": true,
+      "required": false,
+      "default": ""
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=0.10.0",
+    "platforms": ["darwin", "linux", "win32"]
+  }
+}

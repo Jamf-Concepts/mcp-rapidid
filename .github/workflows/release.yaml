@@ -1,0 +1,67 @@
+name: Build and Release
+
+on:
+  release:
+    types: [created]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      MCPB_DIR: build/package/mcpb
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.25"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - name: Install mcpb
+        run: npm install -g @anthropic-ai/mcpb
+
+      - name: Validate manifest.json
+        run: mcpb validate ${{ env.MCPB_DIR }}/manifest.json
+
+      - name: Build MacOS Apple Silicon binary
+        run: GOOS=darwin GOARCH=arm64 go build -ldflags='-s -w -X main.version=${{ github.ref_name }} -X main.commit=${{ github.sha }}' -o ${{ env.MCPB_DIR }}/server/mcp-rapidid ./cmd/mcp-rapidid
+
+      - name: Package MacOS Apple Silicon binary
+        run: mcpb pack ${{ env.MCPB_DIR }} mcprapidid-${{ github.ref_name }}-macos-apple-silicon.mcpb
+
+      - name: Build MacOS Intel binary
+        run: GOOS=darwin GOARCH=amd64 go build -ldflags='-s -w -X main.version=${{ github.ref_name }} -X main.commit=${{ github.sha }}' -o ${{ env.MCPB_DIR }}/server/mcp-rapidid ./cmd/mcp-rapidid
+
+      - name: Package MacOS Intel binary
+        run: mcpb pack ${{ env.MCPB_DIR }} mcprapidid-${{ github.ref_name }}-macos-intel.mcpb
+
+      - name: Build Windows binary
+        run: GOOS=windows GOARCH=amd64 go build -ldflags='-s -w -X main.version=${{ github.ref_name }} -X main.commit=${{ github.sha }}' -o ${{ env.MCPB_DIR }}/server/mcp-rapidid ./cmd/mcp-rapidid
+
+      - name: Package Windows binary
+        run: mcpb pack ${{ env.MCPB_DIR }} mcprapidid-${{ github.ref_name }}-windows-amd64.mcpb
+
+      - name: Build Linux binary
+        run: GOOS=linux GOARCH=amd64 go build -ldflags='-s -w -X main.version=${{ github.ref_name }} -X main.commit=${{ github.sha }}' -o ${{ env.MCPB_DIR }}/server/mcp-rapidid ./cmd/mcp-rapidid
+
+      - name: Package Linux binary
+        run: mcpb pack ${{ env.MCPB_DIR }} mcprapidid-${{ github.ref_name }}-linux-amd64.mcpb
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            mcprapidid-${{ github.ref_name }}-macos-apple-silicon.mcpb
+            mcprapidid-${{ github.ref_name }}-macos-intel.mcpb
+            mcprapidid-${{ github.ref_name }}-windows-amd64.mcpb
+            mcprapidid-${{ github.ref_name }}-linux-amd64.mcpb
