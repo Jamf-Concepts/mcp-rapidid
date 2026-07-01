@@ -1,3 +1,5 @@
+// Copyright 2026, Jamf Software LLC
+
 package ri
 
 import (
@@ -6,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/hatch-ed-com/ri-sdk-go/pkg/rapididentity"
@@ -54,7 +57,7 @@ func SearchRapidIdentityUsers(ctx context.Context, req *mcp.CallToolRequest, inp
 
 	delegationRes, err := client.DoCustomRequest(ctx, "GET", "profiles/delegations/my", nil)
 	if err != nil {
-		return nil, UserOutput{}, nil
+		return nil, UserOutput{}, err
 	}
 
 	defer func(res *http.Response) {
@@ -65,6 +68,9 @@ func SearchRapidIdentityUsers(ctx context.Context, req *mcp.CallToolRequest, inp
 	}(delegationRes)
 
 	delegationResBody, err := io.ReadAll(delegationRes.Body)
+	if err != nil {
+		return nil, UserOutput{}, err
+	}
 
 	var delegationOutputs []Delegation
 
@@ -73,10 +79,10 @@ func SearchRapidIdentityUsers(ctx context.Context, req *mcp.CallToolRequest, inp
 		return nil, UserOutput{}, err
 	}
 
-	path := fmt.Sprintf("users?search=simple&criteria=%s", input.Criteria)
+	path := fmt.Sprintf("users?search=simple&criteria=%s", url.QueryEscape(input.Criteria))
 
 	for _, delegationOutput := range delegationOutputs {
-		path = fmt.Sprintf("%s&did=%s", path, delegationOutput.Id)
+		path = fmt.Sprintf("%s&did=%s", path, url.QueryEscape(delegationOutput.Id))
 	}
 
 	userRes, err := client.DoCustomRequest(ctx, "GET", path, nil)

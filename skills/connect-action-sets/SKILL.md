@@ -29,22 +29,12 @@ Detect which mode to use based on available tools and the user's request:
 
 | Context | Mode |
 |---|---|
-| `RapidIdentity MCP Server:*` tools are available and the user is working against a live Connect instance | **API mode** — use MCP tools for discovery and simple flat creates |
+| `RapidIdentity MCP Server:*` tools are available and the user is working against a live Connect instance | **API mode** — use MCP tools |
 | Working with `.dssproject` files or XML strings on disk / in the conversation | **File mode** — use XML |
-| Both available | Follow what the user's request implies — but author all real logic in file mode (see caveat) |
+| Both available | Follow what the user's request implies |
 
 **In API mode:** Always call `get-connect-projects` and `get-connect-actions` to orient before
 doing any design or editing work.
-
-> **MCP capability caveat.** The current `RapidIdentity MCP Server` read path (`get-connect-action`)
-> returns nesting args (`do`/`then`/`else`) as empty scalars and **omits all child action bodies** —
-> you get the top-level section/action skeleton but not the logic inside. The `save-connect-action`
-> schema is correspondingly flat. So the MCP is reliable for **discovery, metadata, and simple flat
-> action sets**, but **anything with sections, branches, or loops (i.e. essentially all real action
-> sets) must be authored and delivered as XML in file mode** — produce the importable `.dssproject`
-> XML and have the user import it. Do **not** round-trip an existing action set through
-> `get-connect-action` → `save-connect-action`: it will silently drop every nested body. (A fix to
-> the MCP is expected; re-verify before relying on nested reads/writes.)
 
 **In file mode:** All existing XML authoring rules in this skill apply unchanged.
 
@@ -786,7 +776,9 @@ target system (see § Connections).
 </action>
 ```
 
-Close at the end only when `closeSession` is true:
+Close at the end only when `closeSession` is true (and only for closeable connection types — OAuth2 /
+HTTP Basic connections like Microsoft Graph and Google OAuth are never closed; see
+`references/connections.md`):
 ```xml
 <action name="if">
   <arg name="condition" value="closeSession"/>
@@ -816,7 +808,7 @@ from `Global.*` — never hardcode them.
 | Database | `openDatabaseConnection` (needs a bridge + connection-string template) |
 | AES encrypt/decrypt | AES Community Adapter actions (`GenerateAESKey`, `AESEncrypt`, `AESDecrypt`, …) |
 
-All connection types close with `<action name="close"><arg name="closeable" value="session"/></action>`.
+Only **closeable** connection/IO actions are closed with `<action name="close"><arg name="closeable" value="session"/></action>`. OAuth2 / HTTP Basic connections (e.g. Microsoft Graph, Google OAuth) hold a token, not a handle, and are **not** closed. See the closeable-actions list and the not-closeable rule in `references/connections.md`.
 
 **Full per-system details — required args, Global keys, `getLDAPRecords` `baseDn`/`attributes`
 selection, the AES sequence, failure handling, and closing — are in
@@ -914,7 +906,7 @@ Before delivering any XML:
 | `FnHasRecordChanged` returns false when changes were made | The "old" and "new" records are the same object due to `setVariable` aliasing; use `copyRecord` for the snapshot |
 | `<action>` missing `id` or `disabled` | Actions render read-only in Connect editor — every action needs `id="UPPERCASE-UUID"` and `disabled="false"` |
 | `forEach` with `item` / `items` args | Wrong arg names — use `variable` (loop var name) and `collection` (the array) |
-| Closing LDAP with `closeConnection` + `ldapConnection` | Wrong action — use `<action name="close"><arg name="closeable" value="session"/></action>` for all connection types |
+| Closing LDAP with `closeConnection` + `ldapConnection` | Wrong action — use `<action name="close"><arg name="closeable" value="session"/></action>`, and only for closeable connection types (OAuth2/HTTP Basic connections like Graph and Google are not closed — see `references/connections.md`) |
 | `getLDAPRecords` with `attributes` value `[]` | Bare array literal fails the expression compiler — use `"*,+"` (all attrs), `"*"` (standard only), or `"attr1,attr2"` (specific) |
 | `Array.isArray(ldapResults)` to check query results | Connect returns a single object when only one record matches — `Array.isArray` returns `false`. Always run `copyArray outputVar="results"` immediately after `getLDAPRecords`, then check `results.length > 0` |
 | `setVariable` to extract a record from results array (`results[0]`) | Use `copyRecord outputVar="record"` with `record="results[0]"` — `setVariable` creates an alias, not a copy |
@@ -1091,9 +1083,8 @@ others only for the matching task. The SKILL.md body covers everything needed fo
 ## MCP Workflow
 
 The `RapidIdentity MCP Server:*` tools cover discovery and metadata: `get-connect-projects`,
-`get-connect-actions` (list/metadata), `get-connect-action` (single, top-level only — see the MCP
-capability caveat in § Working Mode Detection), `save-connect-action`, and `delete-connect-action`
-(always confirm before deleting). Author real logic as XML in file mode.
+`get-connect-actions` (list/metadata), `get-connect-action` (single), `save-connect-action`, and
+`delete-connect-action` (always confirm before deleting).
 
 **Full MCP workflow (read/explore, the JSON object model, and field-by-field XML ↔ JSON conversion
 rules) is in `references/mcp-and-json.md`.**

@@ -2,8 +2,8 @@
   "manifest_version": "0.3",
   "name": "mcp-rapidid",
   "display_name": "RapidIdentity MCP Server",
-  "version": "0.5.1",
-  "description": "MCP server for RapidIdentity — search users, manage entitlements, query groups, and read audit logs via the RapidIdentity API.",
+  "version": "0.7.0",
+  "description": "MCP server for RapidIdentity — search users, manage entitlements, query groups, read audit logs, and more via the RapidIdentity API.",
   "author": {
     "name": "Ramon Ramon",
     "url": "https://www.linkedin.com/in/ramon-ramon-25540b102"
@@ -81,6 +81,26 @@
     {
       "name": "delete-connect-action",
       "description": "Deletes a RapidIdentity Connect action set by ID"
+    },
+    {
+      "name": "get-password-policies-for",
+      "description": "Retrieves the password policy for specified users"
+    },
+    {
+      "name": "set-password",
+      "description": "Sets the RapidIdentity password for one or more users via delegations"
+    },
+    {
+      "name": "run-connect-action",
+      "description": "Runs a RapidIdentity Connect action set and returns the HTML log"
+    },
+    {
+      "name": "get-connect-files",
+      "description": "Returns metadata for files and directories within the RapidIdentity Connect files module"
+    },
+    {
+      "name": "get-connect-file-content",
+      "description": "Returns the text content of a file from the RapidIdentity Connect files module, such as SharedGlobals.properties or Globals.properties"
     }
   ],
   "user_config": {

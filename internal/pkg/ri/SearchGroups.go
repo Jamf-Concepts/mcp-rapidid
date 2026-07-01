@@ -1,3 +1,5 @@
+// Copyright 2026, Jamf Software LLC
+
 package ri
 
 import (
@@ -6,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/hatch-ed-com/ri-sdk-go/pkg/rapididentity"
@@ -49,7 +52,7 @@ func SearchGroups(ctx context.Context, req *mcp.CallToolRequest, input SearchGro
 		}
 	}(client)
 
-	path := fmt.Sprintf("roles/managedGroups/searchTask?criteria=%s", input.Criteria)
+	path := fmt.Sprintf("roles/managedGroups/searchTask?criteria=%s", url.QueryEscape(input.Criteria))
 	groupsRes, err := client.DoCustomRequest(ctx, "POST", path, nil)
 	if err != nil {
 		return nil, SearchGroupsOutput{}, err

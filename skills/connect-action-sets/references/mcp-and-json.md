@@ -29,18 +29,8 @@ Use these operations when in API mode (`RapidIdentity MCP Server:*` tools availa
 
 ### Design (new from scratch)
 
-> **Author real logic as XML in file mode, not through the MCP.** The current `RapidIdentity MCP
-> Server` does not faithfully round-trip nested action bodies: `get-connect-action` returns
-> `do`/`then`/`else` as empty scalars (the child actions are dropped), and `save-connect-action`'s
-> schema is flat. A `save-connect-action` carrying a `{"name":"do","actions":[...]}` body has been
-> observed to fail outright. The reliable path for anything with sections, branches, or loops is to
-> author the importable `.dssproject` XML (standalone `<actionDefs>` wrapper) following all the XML
-> rules in this skill, validate with `xmllint`, and have the user import it through the Connect UI.
-> Use the MCP only to orient (`get-connect-projects`, `get-connect-actions`) and to read top-level
-> metadata. Re-verify this limitation if the MCP has been updated.
-
-The JSON nesting model below is retained for reference and for any future MCP version that supports
-nested bodies; it also documents the wire shapes Connect uses internally.
+The JSON object model below documents the wire shapes Connect uses for sections and nested actions.
+Critical rules:
 
 **Sections exist in the model and can be nested to any depth.** A section's `args` contains
 only the fields that are set — `label` and `suppressTrace` are each optional, `do` is required.
@@ -50,8 +40,7 @@ them are valid but are an anti-pattern (they lose trace suppression and become u
 **Nesting args (`do`/`then`/`else`) must NOT have a `value` field.** The presence of `"value"`
 (even `""`) tells Connect the arg is a scalar — it ignores `"actions"` and stores an empty body,
 causing `Property must be a list of actions 'section.do'` (or `if.then`, `forEach.do`, etc.).
-Use only `{"name": "do", "actions": [...]}` — no `value` key at all. (This is also exactly the
-shape the current MCP read collapses, which is why MCP round-tripping loses bodies.)
+Use only `{"name": "do", "actions": [...]}` — no `value` key at all.
 
 **Every `if` must have both `then` and `else`.** Always include both args. Empty `else` is a bare object: `{"name": "else"}` — no `value`, no `actions`. Omitting `else` entirely causes a compile error.
 

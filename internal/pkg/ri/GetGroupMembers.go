@@ -1,3 +1,5 @@
+// Copyright 2026, Jamf Software LLC
+
 package ri
 
 import (
@@ -6,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/hatch-ed-com/ri-sdk-go/pkg/rapididentity"
@@ -39,9 +42,9 @@ func GetGroupMembers(ctx context.Context, req *mcp.CallToolRequest, input GetGro
 		}
 	}(client)
 
-	path := fmt.Sprintf("roles/groups/%s/membershipCalculation?pageSize=%d", input.GroupId, input.PageSize)
+	path := fmt.Sprintf("roles/groups/%s/membershipCalculation?pageSize=%d", url.PathEscape(input.GroupId), input.PageSize)
 	if input.PagingSessionId != "" {
-		path = fmt.Sprintf("%s&pagingSessionId=%s", path, input.PagingSessionId)
+		path = fmt.Sprintf("%s&pagingSessionId=%s", path, url.QueryEscape(input.PagingSessionId))
 	}
 
 	membersRes, err := client.DoCustomRequest(ctx, "GET", path, nil)
