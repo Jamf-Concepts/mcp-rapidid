@@ -11,12 +11,12 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-func GetConnectActions(ctx context.Context, req *mcp.CallToolRequest, input rapididentity.GetConnectActionsInput) (*mcp.CallToolResult, rapididentity.GetConnectActionsOutput, error) {
+func GetPasswordPoliciesFor(ctx context.Context, req *mcp.CallToolRequest, input rapididentity.GetPasswordPoliciesForInput) (*mcp.CallToolResult, rapididentity.PasswordPolicy, error) {
 	options := GetRapidIdentityOptions()
 
 	client, err := rapididentity.New(options)
 	if err != nil {
-		return nil, rapididentity.GetConnectActionsOutput{}, err
+		return nil, rapididentity.PasswordPolicy{}, err
 	}
 
 	defer func(c *rapididentity.Client) {
@@ -26,9 +26,9 @@ func GetConnectActions(ctx context.Context, req *mcp.CallToolRequest, input rapi
 		}
 	}(client)
 
-	result, err := client.GetConnectActions(ctx, input)
+	result, err := client.GetPasswordPoliciesFor(ctx, input)
 	if err != nil {
-		return nil, rapididentity.GetConnectActionsOutput{}, err
+		return nil, rapididentity.PasswordPolicy{}, err
 	}
 
 	return nil, *result, nil

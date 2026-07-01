@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright 2026, Jamf Software LLC
 # Compiles mcp-rapidid into build/package/mcpb/server/ for MCPB packaging.
 # Usage:
 #   ./scripts/build-bundle.sh                  # current OS/arch → server/mcp-rapidid
@@ -14,7 +15,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 SERVER_DIR="${REPO_ROOT}/build/package/mcpb/server"
-ENTRY="./cmd/mcp-rapidid"
+ENTRY="${REPO_ROOT}/cmd/mcp-rapidid"
 BIN="mcp-rapidid"
 
 mkdir -p "${SERVER_DIR}"

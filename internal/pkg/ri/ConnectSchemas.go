@@ -1,3 +1,5 @@
+// Copyright 2026, Jamf Software LLC
+
 package ri
 
 import "github.com/google/jsonschema-go/jsonschema"
@@ -103,6 +105,19 @@ var SaveConnectActionInputSchema = &jsonschema.Schema{
 			Type:        "object",
 			Description: "The action to save or update. When updating an existing action set the version number must be the one provided to you in a Connect action query.",
 			Properties:  connectSchemaDefs["actionDef"].Properties,
+		},
+	},
+}
+
+// RunConnectActionInputSchema is the input schema for run-connect-action.
+var RunConnectActionInputSchema = &jsonschema.Schema{
+	Type: "object",
+	Defs: connectSchemaDefs,
+	Properties: map[string]*jsonschema.Schema{
+		"action": {
+			Type:        "object",
+			Description: "The Connect action to run",
+			Properties:  connectSchemaDefs["connectAction"].Properties,
 		},
 	},
 }

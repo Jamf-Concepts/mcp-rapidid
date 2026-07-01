@@ -114,6 +114,7 @@ Never use a bare `[]` array literal — this fails the Connect expression compil
 
 - `connection` is the session from `defineGoogleExtendedOAuthConnection`.
 - `data` is the request body (a record/object); `method`, `url`, `contentType` are quoted strings.
+- **Not closeable** — this is an OAuth2 connection; do not call `close` on it (see § Closing Connections).
 
 ### Microsoft 365 — OAuth2 via `httpPOST`
 
@@ -142,6 +143,7 @@ Microsoft 365 has no built-in connection action. Obtain a bearer token manually:
 
 - Globals required: `microsoftApplicationClientID`, `microsoftClientSecretValue`, `microsoftDirectoryTenantID`.
 - `session` will hold the raw bearer token string for use in subsequent Graph API calls.
+- **Not closeable** — this is an OAuth2 / bearer-token connection, not an open handle; do not call `close` on it (see § Closing Connections).
 
 ### Database — `openDatabaseConnection`
 
@@ -222,7 +224,7 @@ Pass the open session to LDAP/directory actions via `ldapConnection`.
 
 ### Closing Connections — `close`
 
-All connection types (LDAP, AD, Portal, database) are closed with the same action:
+Only **closeable** connection/IO actions are closed, and they all use the same action:
 
 ```xml
 <action id="A1B2C3D4-E5F6-7890-ABCD-EF1234567890" name="close" outputVar="" disabled="false">
@@ -230,8 +232,29 @@ All connection types (LDAP, AD, Portal, database) are closed with the same actio
 </action>
 ```
 
-- The arg name is `closeable`, not `ldapConnection` — this applies to all connection types
-- Always close in a `closeConnections` section or wherever the session goes out of scope
+- The arg name is `closeable`, not `ldapConnection` or `connection`.
+- Always close in a `closeConnections` section (or wherever the session goes out of scope), and in
+  function mode only when this action set opened the connection itself.
+
+**Closeable connection/IO actions** — call `close` on the session returned by any of these:
+
+| Group | Actions |
+|---|---|
+| Text / file I/O | `openDelimitedTextInput`, `openDelimitedTextOutput`, `openTextInput`, `openTextOutput`, `openLDIFOutput` |
+| Directory / LDAP | `openADConnection`, `openMetadirLDAPConnection`, `openLDAPConnection` |
+| Portal | `definePortalConnection`, `defineCloudPortalConnection` |
+| Database | `openDatabaseConnection` |
+| Cloud / app | `openForceComConnection`, `openExchangeConnection`, `openOffice365Connection`, `openAWSIAMConnection` |
+| Remote execution / tunneling | `openRemoteCLI`, `openRemoteCLIWithCert`, `openRemoteWindowsCLI`, `openPortForwardingSession`, `openPortForwardingSessionWithCert` |
+
+**Not closeable — never call `close` on these.** OAuth2 or HTTP Basic style connections hold a token
+or credential rather than an open handle, so there is nothing to close. This includes:
+
+- The Microsoft Graph API connection (the bearer token obtained via `httpPOST` above).
+- `defineGoogleExtendedOAuthConnection` (Google OAuth).
+- Any other OAuth2 / HTTP Basic connection.
+
+If a connection action is not in the closeable table above, do not call `close` on it.
 
 ---
 

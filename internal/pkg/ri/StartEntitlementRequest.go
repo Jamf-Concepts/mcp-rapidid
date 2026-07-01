@@ -1,3 +1,5 @@
+// Copyright 2026, Jamf Software LLC
+
 package ri
 
 import (
@@ -69,7 +71,7 @@ func StartEntitlementRequest(ctx context.Context, req *mcp.CallToolRequest, inpu
 
 	requestPayload, err := json.Marshal(payload)
 	if err != nil {
-		return nil, StartEntitlementRequestOutput{}, nil
+		return nil, StartEntitlementRequestOutput{}, err
 	}
 
 	body := bytes.NewBuffer(requestPayload)
@@ -87,6 +89,9 @@ func StartEntitlementRequest(ctx context.Context, req *mcp.CallToolRequest, inpu
 	}(startTaskRes)
 
 	startTaskBody, err := io.ReadAll(startTaskRes.Body)
+	if err != nil {
+		return nil, StartEntitlementRequestOutput{}, err
+	}
 
 	var requestIds []string
 

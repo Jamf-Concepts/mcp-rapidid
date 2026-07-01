@@ -39,3 +39,6 @@ build/package/mcpb/server/mcp-rapidid
 build/package/mcpb/server/mcp-rapidid-*
 # Packed MCPB archives
 *.mcpb
+
+# Personal developer journal
+JOURNAL.md

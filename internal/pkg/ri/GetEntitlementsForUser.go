@@ -1,3 +1,5 @@
+// Copyright 2026, Jamf Software LLC
+
 package ri
 
 import (
@@ -67,6 +69,9 @@ func GetEntitlementForUser(ctx context.Context, req *mcp.CallToolRequest, input 
 	}(entitlementAssociationsRes)
 
 	entitlementAssociationsBody, err := io.ReadAll(entitlementAssociationsRes.Body)
+	if err != nil {
+		return nil, EntitlementForUserOutput{}, err
+	}
 
 	var output EntitlementForUserOutput
 
