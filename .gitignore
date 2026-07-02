@@ -42,3 +42,6 @@ build/package/mcpb/server/mcp-rapidid-*
 
 # Personal developer journal
 JOURNAL.md
+
+# OSS pre-release checklist (local only — do not commit)
+jamf-oss-developer-checklist-*.md
