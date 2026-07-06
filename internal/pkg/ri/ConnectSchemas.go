@@ -77,9 +77,9 @@ var connectSchemaDefs = map[string]*jsonschema.Schema{
 // ConnectActionDefSchema is the schema for a single ActionDef, used as output
 // for get-connect-action and save-connect-action.
 var ConnectActionDefSchema = &jsonschema.Schema{
-	Type:       "object",
-	Defs:       connectSchemaDefs,
-	Properties: connectSchemaDefs["actionDef"].Properties,
+	Type: "object",
+	Defs: connectSchemaDefs,
+	Ref:  "#/$defs/actionDef",
 }
 
 // ConnectActionsOutputSchema is the output schema for get-connect-actions.
@@ -102,9 +102,8 @@ var SaveConnectActionInputSchema = &jsonschema.Schema{
 	Defs: connectSchemaDefs,
 	Properties: map[string]*jsonschema.Schema{
 		"action": {
-			Type:        "object",
 			Description: "The action to save or update. When updating an existing action set the version number must be the one provided to you in a Connect action query.",
-			Properties:  connectSchemaDefs["actionDef"].Properties,
+			Ref:         "#/$defs/actionDef",
 		},
 	},
 }
@@ -115,9 +114,8 @@ var RunConnectActionInputSchema = &jsonschema.Schema{
 	Defs: connectSchemaDefs,
 	Properties: map[string]*jsonschema.Schema{
 		"action": {
-			Type:        "object",
 			Description: "The Connect action to run",
-			Properties:  connectSchemaDefs["connectAction"].Properties,
+			Ref:         "#/$defs/connectAction",
 		},
 	},
 }
