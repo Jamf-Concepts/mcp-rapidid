@@ -5,18 +5,17 @@ package ri
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/hatch-ed-com/ri-sdk-go/pkg/rapididentity"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+const connect_log_name = "connect-tools"
+
 type GetConnectProjectsInput struct{}
 
 func GetConnectProjects(ctx context.Context, req *mcp.CallToolRequest, input GetConnectProjectsInput) (*mcp.CallToolResult, rapididentity.GetConnectProjectsOutput, error) {
-	options := GetRapidIdentityOptions()
-
-	client, err := rapididentity.New(options)
+	client, th, err := ToolSetup(req, connect_log_name)
 	if err != nil {
 		return nil, rapididentity.GetConnectProjectsOutput{}, err
 	}
@@ -24,14 +23,19 @@ func GetConnectProjects(ctx context.Context, req *mcp.CallToolRequest, input Get
 	defer func(c *rapididentity.Client) {
 		err = c.Close()
 		if err != nil {
-			_, _ = fmt.Fprint(os.Stderr, err)
+			LogRIError(th, "unable to close connection to rapididentity", err)
 		}
 	}(client)
 
+	
+	th.Notify().Info("Calling RapidIdentity Connect projects endpoint")
 	result, err := client.GetConnectProjects(ctx)
 	if err != nil {
+		LogRIError(th, "unable to retrieve rapididentity connect projects", err)
 		return nil, rapididentity.GetConnectProjectsOutput{}, err
 	}
+
+	th.Notify().Info(fmt.Sprintf("Retrieved %d projects", len(result.Projects)))
 
 	return nil, *result, nil
 }
