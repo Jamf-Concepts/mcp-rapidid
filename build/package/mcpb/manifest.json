@@ -25,7 +25,8 @@
         "RI_HOST": "${user_config.ri_host}",
         "RI_USER": "${user_config.ri_user}",
         "RI_PASSWORD": "${user_config.ri_password}",
-        "RI_SERVICE_IDENTITY_SECRET_KEY": "${user_config.ri_service_identity_secret_key}"
+        "RI_SERVICE_IDENTITY_SECRET_KEY": "${user_config.ri_service_identity_secret_key}",
+        "RI_LOG_LEVEL": "${user_config.ri_log_level}"
       }
     }
   },
@@ -132,6 +133,14 @@
       "sensitive": true,
       "required": false,
       "default": ""
+    },
+    "ri_log_level": {
+      "type": "string",
+      "title": "Log Level",
+      "description": "The log level for the MCP server. This can be one of error, warn, info, or debug",
+      "sensitive": false,
+      "required": false,
+      "default": "error"
     }
   },
   "compatibility": {
