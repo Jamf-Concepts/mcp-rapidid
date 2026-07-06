@@ -1,0 +1,29 @@
+version: 2
+updates:
+  # Update go module dependencies every month
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      go-deps:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    labels:
+      - "dependencies"
+
+  # Update to Github Actions every month
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      actions-deps:
+        patterns:
+          - "*"
+    labels:
+      - "dependencies"
+      - "github-actions"
