@@ -35,6 +35,10 @@
       "description": "Used to search basic RapidIdentity user information based on a simple criteria"
     },
     {
+      "name": "search-all-users",
+      "description": "Searches all RapidIdentity users system-wide via the reporting endpoint, bypassing delegation scope. Use when search-users returns no results for a known user."
+    },
+    {
       "name": "search-entitlements-for-user",
       "description": "Used to search entitlements for a RapidIdentity user"
     },
