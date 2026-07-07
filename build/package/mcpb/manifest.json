@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "mcp-rapidid",
   "display_name": "RapidIdentity MCP Server",
-  "version": "0.7.0",
+  "version": "v0.7.1",
   "description": "MCP server for RapidIdentity — search users, manage entitlements, query groups, read audit logs, and more via the RapidIdentity API.",
   "author": {
     "name": "Ramon Ramon",
