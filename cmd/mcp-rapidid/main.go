@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 
 	"github.com/Jamf-Concepts/mcp-rapidid/internal/pkg/ri"
@@ -28,7 +29,17 @@ func main() {
 		os.Exit(0)
 	}
 
-	server := mcp.NewServer(&mcp.Implementation{Name: "mcp-rapidid", Title: "RapidId MCP Server", Version: version}, nil)
+	var level slog.Level
+	configuredLevel := os.Getenv("RI_LOG_LEVEL")
+	err := level.UnmarshalText([]byte(configuredLevel))
+	if err != nil {
+		level = slog.LevelError
+	}
+
+	server := mcp.NewServer(&mcp.Implementation{Name: "mcp-rapidid", Title: "RapidID MCP Server", Version: version}, &mcp.ServerOptions{
+		Capabilities: &mcp.ServerCapabilities{Logging: &mcp.LoggingCapabilities{}, Tools: &mcp.ToolCapabilities{}},
+		Logger: slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: level})),
+	})
 	mcp.AddTool(server, &mcp.Tool{Name: "search-users", Description: "Used to search basic Rapididentity user information based on a simple criteria"}, ri.SearchRapidIdentityUsers)
 	mcp.AddTool(server, &mcp.Tool{Name: "search-entitlements-for-user", Description: "Used to search entitlements for a RapidIdentity user"}, ri.GetEntitlementForUser)
 	mcp.AddTool(server, &mcp.Tool{Name: "start-entitlement-request", Description: "Starts entitlement requests for any number of users"}, ri.StartEntitlementRequest)
@@ -47,7 +58,7 @@ func main() {
 	mcp.AddTool(server, &mcp.Tool{Name: "run-connect-action", Description: "Runs a RapidIdentity Connect action set and returns the HTML log", InputSchema: ri.RunConnectActionInputSchema}, ri.RunConnectAction)
 	mcp.AddTool(server, &mcp.Tool{Name: "get-connect-files", Description: "Returns metadata for files and directories within the RapidIdentity Connect files module"}, ri.GetConnectFiles)
 	mcp.AddTool(server, &mcp.Tool{Name: "get-connect-file-content", Description: "Returns the text content of a file from the RapidIdentity Connect files module, such as SharedGlobals.properties or Globals.properties"}, ri.GetConnectFileContent)
-	err := server.Run(context.Background(), &mcp.StdioTransport{})
+	err = server.Run(context.Background(), &mcp.StdioTransport{})
 	if err != nil {
 		log.Fatal(err)
 	}
