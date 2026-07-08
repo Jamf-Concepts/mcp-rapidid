@@ -62,24 +62,37 @@ access to all API endpoints even with the Tenant Admin role.
 
 ## Tools
 
-- `search-users`: Performs a simple search based on the delegations available to the authenticated user.
-- `search-entitlements-for-user`: Performs a search of entitlements for the given user based on their idautoID.
-- `start-entitlement-request`: Initiates an entitlement request for a particular user and entitlement based on idautoID and resourceId respectively.
-- `get-my-delegations`: Gets delegations that are accessible to the authenticated user. This is based on the credentials included in your environment variables.
-- `get-user-info-in-delegation`: Does an advanced search of a RapidID delegation.
-- `search-groups`: Does a simple search of a RapidID group.
-- `get-group-members`: Gets group members for a specified RapidID group.
-- `get-user-activity-from-audit-log`: Returns audit log activity for a specific RapidID user over a given date range.
-- `get-connect-projects`: Returns all RapidID Connect projects
-- `get-connect-actions`: Returns Connect action sets within a project, or across all projects
-- `get-connect-action`: Returns a single RapidID Connect action set by ID
-- `save-connect-action`: Saves (creates or updates) a RapidID Connect action set
-- `delete-connect-action`: Deletes a RapidID Connect action set by ID
-- `get-password-policies-for`: Retrieves the password policy for specified users
-- `set-password`: Sets the RapidID password for one or more users via delegations
-- `run-connect-action`: Runs a RapidID Connect action set and returns the HTML log
-- `get-connect-files`: Returns metadata for files and directories within the RapidID Connect files module
-- `get-connect-file-content`: Returns the text content of a file from the RapidID Connect files module
+The "Service ID Compatible" column indicates whether a RapidID Service Identity can call the underlying API endpoint. Where compatible, the Service Identity must be a member of at least one of the groups listed in the legend below the table.
+
+| Tool | Description | Service ID Compatible |
+|------|-------------|----------------------|
+| `search-users` | Performs a simple search based on the delegations available to the authenticated user | No |
+| `search-entitlements-for-user` | Performs a search of entitlements for the given user based on their idautoID | Yes [2] |
+| `start-entitlement-request` | Initiates an entitlement request for a particular user and entitlement based on idautoID and resourceId respectively | No |
+| `get-my-delegations` | Gets delegations that are accessible to the authenticated user | No |
+| `get-user-info-in-delegation` | Does an advanced search of a RapidID delegation | No |
+| `search-groups` | Does a simple search of a RapidID group | Yes [3] |
+| `get-group-members` | Gets group members for a specified RapidID group | Yes [4] |
+| `get-user-activity-from-audit-log` | Returns audit log activity for a specific RapidID user over a given date range | Yes [1] |
+| `get-connect-projects` | Returns all RapidID Connect projects | No |
+| `get-connect-actions` | Returns Connect action sets within a project, or across all projects | No |
+| `get-connect-action` | Returns a single RapidID Connect action set by ID | No |
+| `save-connect-action` | Saves (creates or updates) a RapidID Connect action set | No |
+| `delete-connect-action` | Deletes a RapidID Connect action set by ID | No |
+| `get-password-policies-for` | Retrieves the password policy for specified users | No |
+| `set-password` | Sets the RapidID password for one or more users via delegations | No |
+| `run-connect-action` | Runs a RapidID Connect action set and returns the HTML log | No |
+| `get-connect-files` | Returns metadata for files and directories within the RapidID Connect files module | No |
+| `get-connect-file-content` | Returns the text content of a file from the RapidID Connect files module | No |
+
+**Service ID Group Legend**
+
+| # | Groups |
+|---|--------|
+| [1] | System Admin, Tenant Admin, Reporting Admin, Reporting Viewer, District Admin, District Manager |
+| [2] | System Admin, Tenant Admin, Workflow Admin, Workflow Helpdesk |
+| [3] | System Admin, Tenant Admin, Groups Module Admin, Groups Module Helpdesk, Groups Module Viewer, District Manager |
+| [4] | System Admin, Tenant Admin, Groups Module Admin, Groups Module Viewer |
 
 ## Skills
 
