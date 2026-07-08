@@ -41,6 +41,7 @@ func main() {
 		Logger: slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: level})),
 	})
 	mcp.AddTool(server, &mcp.Tool{Name: "search-users", Description: "Used to search basic Rapididentity user information based on a simple criteria"}, ri.SearchRapidIdentityUsers)
+	mcp.AddTool(server, &mcp.Tool{Name: "search-all-users", Description: "Searches all RapidIdentity users system-wide via the reporting endpoint, bypassing delegation scope. Use when search-users returns no results for a known user."}, ri.SearchAllUsers)
 	mcp.AddTool(server, &mcp.Tool{Name: "search-entitlements-for-user", Description: "Used to search entitlements for a RapidIdentity user"}, ri.GetEntitlementForUser)
 	mcp.AddTool(server, &mcp.Tool{Name: "start-entitlement-request", Description: "Starts entitlement requests for any number of users"}, ri.StartEntitlementRequest)
 	mcp.AddTool(server, &mcp.Tool{Name: "get-my-delegations", Description: "Returns the delegations accessible to the authenticated user"}, ri.GetMyDelegations)
