@@ -14,24 +14,28 @@ how the requested feature would help you do that.
 
 ## Submitting a patch
 
-1. It's generally best to start by opening a new issue describing the bug or
-   feature you're intending to fix. Even if you think it's relatively minor,
-   it's helpful to know what people are working on. Mention in the initial issue
-   that you are planning to work on that bug or feature so that it can be
-   assigned to you.
+1. All features, bugs, and tasks must start with opening and issue. This does a few things.
+   The first is that it provides visibility on what is being worked on and by who. It also
+   provides a place for the maintainers, and others, to provide feedback/guidance to ensure that
+   work being done is necessary. Mention in the initial issue that you are planning to work on
+   the bug, task, or feature so that it can be assigned to you.
 
-2. Follow the normal process of [forking][1] the project, and set up a new branch
+2. Maintainers will review all issues and will label an issue as `ready` when it is approved to
+   be worked on. We highly recommend waiting for this label before work is started on any issue so
+   that time is not wasted on changes that will not be used.
+
+3. Follow the normal process of [forking][1] the project, and set up a new branch
    to work in. It's important that each group of changes be done in separate
    branches in order to ensure that a pull request only includes the commits
    related to that bug or feature.
 
-3. Run `script/fmt.sh` to format your code
+4. Run `script/fmt.sh` to format your code
 
-4. Do your best to have [well-formed commit messages][2] for each change. This
+5. Do your best to have [well-formed commit messages][2] for each change. This
    provides consistency throughout the project, and ensures that commit messages
    are able to be formatted properly by various git tools.
 
-5. Finally, push the commits to your fork and submit a [pull request][3].
+6. Finally, push the commits to your fork and submit a [pull request][3].
    **NOTE:** Please do not use force-push on PRs in this repo, as it makes it
    more difficult for reviewers to see what has changed since the last code
    review. We always perform "squash and merge" actions on PRs in this repo, so it doesn't
