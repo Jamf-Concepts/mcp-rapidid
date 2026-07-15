@@ -9,11 +9,12 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 
 	"github.com/hatch-ed-com/ri-sdk-go/pkg/rapididentity"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+const getGroupMembersToolName = "get-group-members"
 
 type GetGroupMembersInput struct {
 	GroupId         string `json:"groupId" jsonschema:"The unique id of the group. Also known as the idautoID"`
@@ -28,17 +29,16 @@ type GetGroupMembersOutput struct {
 }
 
 func GetGroupMembers(ctx context.Context, req *mcp.CallToolRequest, input GetGroupMembersInput) (*mcp.CallToolResult, GetGroupMembersOutput, error) {
-	options := GetRapidIdentityOptions()
-
-	client, err := rapididentity.New(options)
+	client, th, err := ToolSetup(req, getGroupMembersToolName)
 	if err != nil {
 		return nil, GetGroupMembersOutput{}, err
 	}
 
+	th.Logger().Info(getGroupMembersToolName+" tool called", "groupId", input.GroupId, "pageSize", input.PageSize)
+
 	defer func(c *rapididentity.Client) {
-		err = c.Close()
-		if err != nil {
-			_, _ = fmt.Fprint(os.Stderr, err)
+		if err := c.Close(); err != nil {
+			LogRIError(th, "unable to close rapididentity client", err)
 		}
 	}(client)
 
@@ -47,29 +47,40 @@ func GetGroupMembers(ctx context.Context, req *mcp.CallToolRequest, input GetGro
 		path = fmt.Sprintf("%s&pagingSessionId=%s", path, url.QueryEscape(input.PagingSessionId))
 	}
 
+	th.Logger().Info("Getting group members", "path", path)
+	th.Notify().Info("Retrieving group members")
 	membersRes, err := client.DoCustomRequest(ctx, "GET", path, nil)
 	if err != nil {
+		LogRIError(th, "unable to retrieve group members", err)
 		return nil, GetGroupMembersOutput{}, err
 	}
 
+	th.Logger().Debug("GET "+path+" response", "response", membersRes)
+
 	defer func(res *http.Response) {
-		err := res.Body.Close()
-		if err != nil {
-			_, _ = fmt.Fprint(os.Stderr, err)
+		if err := res.Body.Close(); err != nil {
+			th.Logger().Warn("issue closing response body for "+path+" endpoint response", "error", err)
 		}
 	}(membersRes)
 
 	membersBody, err := io.ReadAll(membersRes.Body)
 	if err != nil {
+		th.Logger().Error("unable to read response body for "+path+" response", "error", err, "status", membersRes.StatusCode)
 		return nil, GetGroupMembersOutput{}, err
 	}
+
+	th.Logger().Debug("GET "+path+" response body", "body", string(membersBody))
 
 	var output GetGroupMembersOutput
 
 	err = json.Unmarshal(membersBody, &output)
 	if err != nil {
+		th.Logger().Error("unable to unmarshal json for GET "+path+" response body", "error", err)
 		return nil, GetGroupMembersOutput{}, err
 	}
+
+	th.Logger().Info("Retrieved group members successfully", "totalCount", output.TotalCount)
+	th.Notify().Info(fmt.Sprintf("Retrieved %d group members", output.TotalCount))
 
 	return nil, output, nil
 }

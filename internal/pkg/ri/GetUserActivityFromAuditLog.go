@@ -5,12 +5,13 @@ package ri
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/hatch-ed-com/ri-sdk-go/pkg/rapididentity"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+const getUserActivityFromAuditLogToolName = "get-user-activity-from-audit-log"
 
 type GetUserActivityFromAuditLogInput struct {
 	IdautoID    string `json:"idautoId"    jsonschema:"required,The unique RapidIdentity user identifier (idautoID UUID). Use search-users to resolve a name first."`
@@ -104,14 +105,16 @@ func GetUserActivityFromAuditLog(ctx context.Context, req *mcp.CallToolRequest, 
 		}
 	}
 
-	options := GetRapidIdentityOptions()
-	client, err := rapididentity.New(options)
+	client, th, err := ToolSetup(req, getUserActivityFromAuditLogToolName)
 	if err != nil {
 		return nil, empty, err
 	}
+
+	th.Logger().Info(getUserActivityFromAuditLogToolName+" tool called", "idautoId", input.IdautoID, "dateRange", input.DateRange)
+
 	defer func(c *rapididentity.Client) {
 		if cerr := c.Close(); cerr != nil {
-			_, _ = fmt.Fprint(os.Stderr, cerr)
+			LogRIError(th, "unable to close rapididentity client", cerr)
 		}
 	}(client)
 
@@ -152,6 +155,8 @@ func GetUserActivityFromAuditLog(ctx context.Context, req *mcp.CallToolRequest, 
 		})
 	}
 
+	th.Logger().Info("Running audit report", "idautoId", input.IdautoID, "dateRange", input.DateRange)
+	th.Notify().Info("Running audit report for user")
 	result, err := client.RunAuditReport(ctx, rapididentity.RunAuditReportInput{
 		Query: rapididentity.AuditReportQuery{
 			OperatorType: rapididentity.AND,
@@ -161,8 +166,12 @@ func GetUserActivityFromAuditLog(ctx context.Context, req *mcp.CallToolRequest, 
 		PageToken: input.PageToken,
 	})
 	if err != nil {
+		LogRIError(th, "unable to run audit report", err)
 		return nil, empty, err
 	}
+
+	th.Logger().Info("Audit report completed successfully", "recordCount", len(result.AuditLogRecords), "adminLimitEnforced", result.AdminLimitEnforced)
+	th.Notify().Info(fmt.Sprintf("Retrieved %d audit log records", len(result.AuditLogRecords)))
 
 	return nil, GetUserActivityFromAuditLogOutput{
 		AuditLogRecords:    result.AuditLogRecords,

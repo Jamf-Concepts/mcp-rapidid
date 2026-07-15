@@ -9,11 +9,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 
 	"github.com/hatch-ed-com/ri-sdk-go/pkg/rapididentity"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+const getUserInfoInDelegationToolName = "get-user-info-in-delegation"
 
 type UserInfoInDelegationInput struct {
 	DelegationId string `json:"delegationId" jsonschema:"The unique delegation id to search the criteria in"`
@@ -37,17 +38,16 @@ type DelegationUserAttribute struct {
 }
 
 func GetUserInfoInDelegation(ctx context.Context, req *mcp.CallToolRequest, input UserInfoInDelegationInput) (*mcp.CallToolResult, UserInfoInDelegationOutput, error) {
-	options := GetRapidIdentityOptions()
-
-	client, err := rapididentity.New(options)
+	client, th, err := ToolSetup(req, getUserInfoInDelegationToolName)
 	if err != nil {
 		return nil, UserInfoInDelegationOutput{}, err
 	}
 
+	th.Logger().Info(getUserInfoInDelegationToolName+" tool called", "delegationId", input.DelegationId)
+
 	defer func(c *rapididentity.Client) {
-		err = c.Close()
-		if err != nil {
-			_, _ = fmt.Fprint(os.Stderr, err)
+		if err := c.Close(); err != nil {
+			LogRIError(th, "unable to close rapididentity client", err)
 		}
 	}(client)
 
@@ -56,29 +56,40 @@ func GetUserInfoInDelegation(ctx context.Context, req *mcp.CallToolRequest, inpu
 	headers := http.Header{}
 	headers.Set("Content-Type", "text/plain")
 
+	th.Logger().Info("Searching users by filter in delegation", "path", path)
+	th.Notify().Info("Searching users in delegation")
 	profilesRes, err := client.DoCustomRequestWithHeaders(ctx, "POST", path, headers, body)
 	if err != nil {
+		LogRIError(th, "unable to retrieve user info in delegation", err)
 		return nil, UserInfoInDelegationOutput{}, err
 	}
 
+	th.Logger().Debug("POST "+path+" response", "response", profilesRes)
+
 	defer func(res *http.Response) {
-		err := res.Body.Close()
-		if err != nil {
-			_, _ = fmt.Fprint(os.Stderr, err)
+		if err := res.Body.Close(); err != nil {
+			th.Logger().Warn("issue closing response body for "+path+" endpoint response", "error", err)
 		}
 	}(profilesRes)
 
 	profilesBody, err := io.ReadAll(profilesRes.Body)
 	if err != nil {
+		th.Logger().Error("unable to read response body for "+path+" response", "error", err, "status", profilesRes.StatusCode)
 		return nil, UserInfoInDelegationOutput{}, err
 	}
+
+	th.Logger().Debug("POST "+path+" response body", "body", string(profilesBody))
 
 	var output UserInfoInDelegationOutput
 
 	err = json.Unmarshal(profilesBody, &output)
 	if err != nil {
+		th.Logger().Error("unable to unmarshal json for POST "+path+" response body", "error", err)
 		return nil, UserInfoInDelegationOutput{}, err
 	}
+
+	th.Logger().Info("Retrieved user info in delegation successfully", "profileCount", len(output.Profiles))
+	th.Notify().Info(fmt.Sprintf("Retrieved %d user profiles", len(output.Profiles)))
 
 	return nil, output, nil
 }
