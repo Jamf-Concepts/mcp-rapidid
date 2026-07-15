@@ -38,7 +38,7 @@ func main() {
 
 	server := mcp.NewServer(&mcp.Implementation{Name: "mcp-rapidid", Title: "RapidID MCP Server", Version: version}, &mcp.ServerOptions{
 		Capabilities: &mcp.ServerCapabilities{Logging: &mcp.LoggingCapabilities{}, Tools: &mcp.ToolCapabilities{}},
-		Logger: slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: level})),
+		Logger:       slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: level})),
 	})
 	mcp.AddTool(server, &mcp.Tool{Name: "search-users", Description: "Used to search basic Rapididentity user information based on a simple criteria"}, ri.SearchRapidIdentityUsers)
 	mcp.AddTool(server, &mcp.Tool{Name: "search-entitlements-for-user", Description: "Used to search entitlements for a RapidIdentity user"}, ri.GetEntitlementForUser)
