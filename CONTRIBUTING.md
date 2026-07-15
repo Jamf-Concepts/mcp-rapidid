@@ -16,22 +16,28 @@ how the requested feature would help you do that.
 
 1. It's generally best to start by opening a new issue describing the bug or
    feature you're intending to fix. Even if you think it's relatively minor,
-   it's helpful to know what people are working on. Mention in the initial issue
-   that you are planning to work on that bug or feature so that it can be
-   assigned to you.
+   it's helpful to know what people are working on. It also provides the
+   ability for others to provide feedback and guidance before work is started.
+   Mention in the initial issue that you are planning to work on that bug or
+   feature so that it can be assigned to you.
 
-2. Follow the normal process of [forking][1] the project, and set up a new branch
+2. Maintainers review all issues and add the ready label once the approach
+   for an issue has been discussed and confirmed. We recommend waiting for
+   this label before starting work, so the scope and approach are settled
+   before any code is written.
+
+3. Follow the normal process of [forking][1] the project, and set up a new branch
    to work in. It's important that each group of changes be done in separate
    branches in order to ensure that a pull request only includes the commits
    related to that bug or feature.
 
-3. Run `script/fmt.sh` to format your code
+4. Run `script/fmt.sh` to format your code
 
-4. Do your best to have [well-formed commit messages][2] for each change. This
+5. Do your best to have [well-formed commit messages][2] for each change. This
    provides consistency throughout the project, and ensures that commit messages
    are able to be formatted properly by various git tools.
 
-5. Finally, push the commits to your fork and submit a [pull request][3].
+6. Finally, push the commits to your fork and submit a [pull request][3].
    **NOTE:** Please do not use force-push on PRs in this repo, as it makes it
    more difficult for reviewers to see what has changed since the last code
    review. We always perform "squash and merge" actions on PRs in this repo, so it doesn't
@@ -53,7 +59,7 @@ tasks.
 ## Other notes on code organization
 
 Currently, all the tools are built in the internal ri package and then added
-to the MCP server in the main.go file. Each RapidIdentity tool should be in
+to the MCP server in the main.go file. Each RapidID tool should be in
 its own file.
 
 When releasing a new version ensure the version is updated in `manifest.json`
