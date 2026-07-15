@@ -9,11 +9,12 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 
 	"github.com/hatch-ed-com/ri-sdk-go/pkg/rapididentity"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+const searchGroupsToolName = "search-groups"
 
 type SearchGroupsInput struct {
 	Criteria string `json:"criteria" jsonschema:"The search criteria for the group."`
@@ -40,40 +41,54 @@ type Group struct {
 }
 
 func SearchGroups(ctx context.Context, req *mcp.CallToolRequest, input SearchGroupsInput) (*mcp.CallToolResult, SearchGroupsOutput, error) {
-	options := GetRapidIdentityOptions()
-	client, err := rapididentity.New(options)
+	client, th, err := ToolSetup(req, searchGroupsToolName)
 	if err != nil {
 		return nil, SearchGroupsOutput{}, err
 	}
+
+	th.Logger().Info(searchGroupsToolName+" tool called", "criteria", input.Criteria)
+
 	defer func(c *rapididentity.Client) {
-		err = c.Close()
-		if err != nil {
-			_, _ = fmt.Fprint(os.Stderr, err)
+		if err := c.Close(); err != nil {
+			LogRIError(th, "unable to close rapididentity client", err)
 		}
 	}(client)
 
 	path := fmt.Sprintf("roles/managedGroups/searchTask?criteria=%s", url.QueryEscape(input.Criteria))
+
+	th.Logger().Info("Searching groups", "path", path)
+	th.Notify().Info("Searching for groups based on criteria")
 	groupsRes, err := client.DoCustomRequest(ctx, "POST", path, nil)
 	if err != nil {
+		LogRIError(th, "unable to search groups", err)
 		return nil, SearchGroupsOutput{}, err
 	}
+
+	th.Logger().Debug("POST "+path+" response", "response", groupsRes)
+
 	defer func(r *http.Response) {
-		err := r.Body.Close()
-		if err != nil {
-			_, _ = fmt.Fprint(os.Stderr, err)
+		if err := r.Body.Close(); err != nil {
+			th.Logger().Warn("issue closing response body for "+path+" endpoint response", "error", err)
 		}
 	}(groupsRes)
 
 	resBody, err := io.ReadAll(groupsRes.Body)
 	if err != nil {
+		th.Logger().Error("unable to read response body for "+path+" response", "error", err, "status", groupsRes.StatusCode)
 		return nil, SearchGroupsOutput{}, err
 	}
+
+	th.Logger().Debug("POST "+path+" response body", "body", string(resBody))
 
 	var output SearchGroupsOutput
 	err = json.Unmarshal(resBody, &output)
 	if err != nil {
+		th.Logger().Error("unable to unmarshal json for POST "+path+" response body", "error", err)
 		return nil, SearchGroupsOutput{}, err
 	}
+
+	th.Logger().Info("Retrieved groups successfully", "groupCount", len(output.Groups), "userCount", len(output.Users))
+	th.Notify().Info(fmt.Sprintf("Retrieved %d groups", len(output.Groups)))
 
 	return nil, output, nil
 }

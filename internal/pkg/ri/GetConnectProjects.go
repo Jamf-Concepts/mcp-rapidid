@@ -10,15 +10,17 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-const connect_log_name = "connect-tools"
+const getConnectProjectToolName = "get-connect-projects"
 
 type GetConnectProjectsInput struct{}
 
 func GetConnectProjects(ctx context.Context, req *mcp.CallToolRequest, input GetConnectProjectsInput) (*mcp.CallToolResult, rapididentity.GetConnectProjectsOutput, error) {
-	client, th, err := ToolSetup(req, connect_log_name)
+	client, th, err := ToolSetup(req, getConnectProjectToolName)
 	if err != nil {
 		return nil, rapididentity.GetConnectProjectsOutput{}, err
 	}
+
+	th.Logger().Info(getConnectProjectToolName + " tool called")
 
 	defer func(c *rapididentity.Client) {
 		err = c.Close()
@@ -27,7 +29,7 @@ func GetConnectProjects(ctx context.Context, req *mcp.CallToolRequest, input Get
 		}
 	}(client)
 
-	
+	th.Logger().Info("Call Connect projects endpoint")
 	th.Notify().Info("Calling RapidIdentity Connect projects endpoint")
 	result, err := client.GetConnectProjects(ctx)
 	if err != nil {
@@ -35,6 +37,9 @@ func GetConnectProjects(ctx context.Context, req *mcp.CallToolRequest, input Get
 		return nil, rapididentity.GetConnectProjectsOutput{}, err
 	}
 
+	th.Logger().Debug("Response payload", "projects", result)
+
+	th.Logger().Info("Retrieved Connect projects successfully", "projectTotal", len(result.Projects))
 	th.Notify().Info(fmt.Sprintf("Retrieved %d projects", len(result.Projects)))
 
 	return nil, *result, nil

@@ -8,11 +8,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 
 	"github.com/hatch-ed-com/ri-sdk-go/pkg/rapididentity"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+const searchEntitlementsForUserToolName = "search-entitlements-for-user"
 
 type EntitlementForUserInput struct {
 	Id string `json:"id" jsonschema:"The unique rapididentity id. Also known as the idautoID"`
@@ -41,44 +42,54 @@ type ResourceAssociation struct {
 }
 
 func GetEntitlementForUser(ctx context.Context, req *mcp.CallToolRequest, input EntitlementForUserInput) (*mcp.CallToolResult, EntitlementForUserOutput, error) {
-	options := GetRapidIdentityOptions()
-
-	client, err := rapididentity.New(options)
+	client, th, err := ToolSetup(req, searchEntitlementsForUserToolName)
 	if err != nil {
 		return nil, EntitlementForUserOutput{}, err
 	}
 
+	th.Logger().Info(searchEntitlementsForUserToolName+" tool called", "userId", input.Id)
+
 	defer func(c *rapididentity.Client) {
-		err = c.Close()
-		if err != nil {
-			_, _ = fmt.Fprint(os.Stderr, err)
+		if err := c.Close(); err != nil {
+			LogRIError(th, "unable to close rapididentity client", err)
 		}
 	}(client)
 
 	path := fmt.Sprintf("workflow/users/%s/associations", input.Id)
+	th.Logger().Info("Calling entitlement associations endpoint", "path", path)
+	th.Notify().Info("Retrieving entitlements for user")
 	entitlementAssociationsRes, err := client.DoCustomRequest(ctx, "GET", path, nil)
 	if err != nil {
+		LogRIError(th, "unable to retrieve entitlement associations", err)
 		return nil, EntitlementForUserOutput{}, err
 	}
 
+	th.Logger().Debug("GET "+path+" response", "response", entitlementAssociationsRes)
+
 	defer func(res *http.Response) {
-		err := res.Body.Close()
-		if err != nil {
-			_, _ = fmt.Fprint(os.Stderr, err)
+		if err := res.Body.Close(); err != nil {
+			th.Logger().Warn("issue closing response body for "+path+" endpoint response", "error", err)
 		}
 	}(entitlementAssociationsRes)
 
 	entitlementAssociationsBody, err := io.ReadAll(entitlementAssociationsRes.Body)
 	if err != nil {
+		th.Logger().Error("unable to read response body for "+path+" response", "error", err, "status", entitlementAssociationsRes.StatusCode)
 		return nil, EntitlementForUserOutput{}, err
 	}
+
+	th.Logger().Debug("GET "+path+" response body", "body", string(entitlementAssociationsBody))
 
 	var output EntitlementForUserOutput
 
 	err = json.Unmarshal(entitlementAssociationsBody, &output)
 	if err != nil {
+		th.Logger().Error("unable to unmarshal json for GET "+path+" response body", "error", err)
 		return nil, EntitlementForUserOutput{}, err
 	}
+
+	th.Logger().Info("Retrieved entitlements successfully", "resourceCount", len(output.Resources), "associationCount", len(output.ResourceAssociations))
+	th.Notify().Info(fmt.Sprintf("Retrieved %d entitlements for user", len(output.Resources)))
 
 	return nil, output, nil
 }

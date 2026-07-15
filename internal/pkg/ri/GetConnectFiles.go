@@ -4,32 +4,38 @@ package ri
 
 import (
 	"context"
-	"fmt"
-	"os"
 
 	"github.com/hatch-ed-com/ri-sdk-go/pkg/rapididentity"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-func GetConnectFiles(ctx context.Context, req *mcp.CallToolRequest, input rapididentity.GetConnectFilesInput) (*mcp.CallToolResult, rapididentity.GetConnectFilesOutput, error) {
-	options := GetRapidIdentityOptions()
+const getConnectFilesToolName = "get-connect-files"
 
-	client, err := rapididentity.New(options)
+func GetConnectFiles(ctx context.Context, req *mcp.CallToolRequest, input rapididentity.GetConnectFilesInput) (*mcp.CallToolResult, rapididentity.GetConnectFilesOutput, error) {
+	client, th, err := ToolSetup(req, getConnectFilesToolName)
 	if err != nil {
 		return nil, rapididentity.GetConnectFilesOutput{}, err
 	}
 
+	th.Logger().Info(getConnectFilesToolName + " tool called")
+
 	defer func(c *rapididentity.Client) {
-		err = c.Close()
-		if err != nil {
-			_, _ = fmt.Fprint(os.Stderr, err)
+		if err := c.Close(); err != nil {
+			LogRIError(th, "unable to close rapididentity client", err)
 		}
 	}(client)
 
+	th.Logger().Info("Getting Connect files")
+	th.Notify().Info("Retrieving Connect files")
 	result, err := client.GetConnectFiles(ctx, input)
 	if err != nil {
+		LogRIError(th, "unable to retrieve Connect files", err)
 		return nil, rapididentity.GetConnectFilesOutput{}, err
 	}
+
+	th.Logger().Debug("Get Connect files response", "result", result)
+	th.Logger().Info("Retrieved Connect files successfully")
+	th.Notify().Info("Retrieved Connect files successfully")
 
 	return nil, *result, nil
 }

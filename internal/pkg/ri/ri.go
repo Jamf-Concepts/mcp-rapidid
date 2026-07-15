@@ -58,16 +58,16 @@ func ToolSetup(req *mcp.CallToolRequest, loggerName string) (*rapididentity.Clie
 }
 
 func LogRIError(th *helper.ToolHelper, message string, err error) {
-		riError, ok := err.(rapididentity.RapidIdentityError)
-		if ok {
-			th.Logger().Error(
-				message,
-				"error", riError.Message,
-				"reason", riError.Reason,
-				"method", riError.Method, 
-				"reqUrl", riError.ReqUrl.String(),
-				"code", riError.Code)
-		} else {
-			th.Logger().Error(message, "error", err)
-		}
+	riError, ok := err.(rapididentity.RapidIdentityError)
+	if ok {
+		th.Logger().Error(
+			message,
+			"error", riError.Message,
+			"reason", riError.Reason,
+			"method", riError.Method,
+			"reqUrl", riError.ReqUrl.String(),
+			"code", riError.Code)
+	} else {
+		th.Logger().Error(message, "error", err)
+	}
 }
