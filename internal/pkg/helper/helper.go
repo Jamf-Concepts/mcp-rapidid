@@ -18,6 +18,9 @@ type ToolHelper struct {
 	// log events, and errors with the system.
 	logger *slog.Logger
 
+	// The log level of the logger.
+	logLevel *slog.LevelVar
+
 	// MCP logging notifications that are send to
 	// the client. Utilized for providing notifications
 	// on what the server is doing.
@@ -34,24 +37,23 @@ type ToolHelper struct {
 	token any
 }
 
-
 // Instantiates a ToolHelper
 func NewToolHelper(req *mcp.CallToolRequest, loggerName string) *ToolHelper {
-	var level slog.Level
+	levelVar := new(slog.LevelVar)
 	configuredLevel := os.Getenv("RI_LOG_LEVEL")
-	err := level.UnmarshalText([]byte(configuredLevel))
+	err := levelVar.UnmarshalText([]byte(configuredLevel))
 	if err != nil {
-		level = slog.LevelError
+		levelVar.Set(slog.LevelError)
 	}
-	
-	
+
 	return &ToolHelper{
-		logger: slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: level})),
+		logger:   slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: levelVar.Level()})),
+		logLevel: levelVar,
 		notify: slog.New(mcp.NewLoggingHandler(req.Session, &mcp.LoggingHandlerOptions{
 			LoggerName: loggerName,
 		})),
 		session: req.Session,
-		token: req.Params.GetProgressToken(),
+		token:   req.Params.GetProgressToken(),
 	}
 }
 
@@ -65,17 +67,22 @@ func (th *ToolHelper) Notify() *slog.Logger {
 	return th.notify
 }
 
-// Tracks progress that is indeterminate, such as a network call.
+// Tracks progress of known process length
 func (th *ToolHelper) ProgressStep(ctx context.Context, progress float64, total float64, message string) {
 	if th.token != nil {
 		err := th.session.NotifyProgress(ctx, &mcp.ProgressNotificationParams{
-			Progress: progress,
-			Total: total,
-			Message: message,
+			Progress:      progress,
+			Total:         total,
+			Message:       message,
 			ProgressToken: th.token,
 		})
 		if err != nil {
 			th.logger.Warn("progress notification failed", "error", err)
 		}
 	}
+}
+
+// Retrieve the log level of logger
+func (th *ToolHelper) LogLevel() slog.Level {
+	return th.logLevel.Level()
 }
