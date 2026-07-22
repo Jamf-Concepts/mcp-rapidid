@@ -123,8 +123,6 @@ func recvResponse(stdout *bufio.Reader, wantID int, timeout time.Duration) (mcpS
 			return res, logs, nil
 		}
 
-		// Not our response — likely a log notification (no id) or a
-		// stale response. Log it and keep reading within the same deadline.
 		fmt.Printf("skipping non-matching message (id=%d): %+v\n", res.ID, res)
 	}
 }
@@ -133,19 +131,33 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func TestToolCalls(t *testing.T) {
+func setupMCPSession(t *testing.T, envOverrides map[string]string) (io.WriteCloser, *bufio.Reader, int) {
+	t.Helper()
+
 	bin := os.Getenv("RI_MCP_BIN")
 	if bin == "" {
 		t.Fatal("RI_MCP_BIN environment variable not present")
 	}
 
-	cmd := exec.Command(bin)
-	cmd.Env = []string{
-		"RI_HOST=" + os.Getenv("RI_HOST"),
-		"RI_USER=" + os.Getenv("RI_USER"),
-		"RI_PASSWORD=" + os.Getenv("RI_PASSWORD"),
-		"RI_LOG_LEVEL=" + os.Getenv("RI_LOG_LEVEL"),
+	env := map[string]string{
+		"RI_HOST":      os.Getenv("RI_HOST"),
+		"RI_USER":      os.Getenv("RI_USER"),
+		"RI_PASSWORD":  os.Getenv("RI_PASSWORD"),
+		"RI_LOG_LEVEL": os.Getenv("RI_LOG_LEVEL"),
 	}
+	for k, v := range envOverrides {
+		env[k] = v
+	}
+
+	var cmdEnv []string
+	for k, v := range env {
+		cmdEnv = append(cmdEnv, k+"="+v)
+	}
+
+	cmd := exec.Command(bin)
+	cmd.Env = cmdEnv
+	cmd.Stderr = os.Stderr
+
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		t.Fatal(err)
@@ -156,9 +168,8 @@ func TestToolCalls(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cmd.Stderr = os.Stderr
-
 	err = cmd.Start()
+
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,108 +180,108 @@ func TestToolCalls(t *testing.T) {
 		cmd.Wait()
 	})
 
-	tests := []struct {
-		name string
-		req  mcpStdioRequest
-	}{
-		{
-			name: "init",
-			req: mcpStdioRequest{
-				JSONRPC: "2.0",
-				ID:      ptr(1),
-				Method:  "initialize",
-				Params:  json.RawMessage(`{ "protocolVersion": "2024-11-05", "clientInfo": {"name": "integration-test", "version": "0.0.0"}, "capabilities": {}}`),
-			},
-		},
-		{
-			name: "notification-init",
-			req: mcpStdioRequest{
-				JSONRPC: "2.0",
-				Method:  "notifications/initialized",
-				Params:  json.RawMessage(`{}`),
-			},
-		},
-		{
-			name: "set-log-level",
-			req: mcpStdioRequest{
-				JSONRPC: "2.0",
-				ID:      ptr(2),
-				Method:  "logging/setLevel",
-				Params:  json.RawMessage(`{"level":"debug"}`),
-			},
-		},
-		{
-			name: "list-tools",
-			req: mcpStdioRequest{
-				JSONRPC: "2.0",
-				ID:      ptr(3),
-				Method:  "tools/list",
-				Params:  json.RawMessage(`{}`),
-			},
-		},
-		{
-			name: "call-tool-get-connect-projects",
-			req: mcpStdioRequest{
-				JSONRPC: "2.0",
-				ID:      ptr(4),
-				Method:  "tools/call",
-				Params:  json.RawMessage(`{"name":"get-connect-projects","arguments":{}}`),
-			},
-		},
-		{
-			name: "call-tool-search-users",
-			req: mcpStdioRequest{
-				JSONRPC: "2.0",
-				ID:      ptr(5),
-				Method:  "tools/call",
-				Params:  json.RawMessage(`{"name":"search-users","arguments":{"criteria": "ramon"}}`),
-			},
-		},
-		{
-			name: "call-tool-get-my-delegations",
-			req: mcpStdioRequest{
-				JSONRPC: "2.0",
-				ID:      ptr(6),
-				Method:  "tools/call",
-				Params:  json.RawMessage(`{"name":"get-my-delegations","arguments":{}}`),
-			},
-		},
-	}
-
 	reader := bufio.NewReader(stdout)
 
-	for i, test := range tests {
-		err := send(stdin, test.req)
-		if err != nil {
-			t.Fatal(err)
-		}
+	send(stdin, mcpStdioRequest{JSONRPC: "2.0", ID: ptr(1), Method: "initialize",
+		Params: json.RawMessage(`{"protocolVersion":"2024-11-05","clientInfo":{"name":"integration-test","version":"0.0.0"},"capabilities":{}}`)})
+	if _, _, err := recvResponse(reader, 1, 3*time.Second); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
 
-		if test.req.ID != nil {
-			res, logs, err := recvResponse(reader, *test.req.ID, time.Second*3)
+	send(stdin, mcpStdioRequest{JSONRPC: "2.0", Method: "notifications/initialized", Params: json.RawMessage(`{}`)})
+
+	send(stdin, mcpStdioRequest{JSONRPC: "2.0", ID: ptr(2), Method: "logging/setLevel",
+		Params: json.RawMessage(`{"level":"debug"}`)})
+	if _, _, err := recvResponse(reader, 2, 3*time.Second); err != nil {
+		t.Fatalf("logging/setLevel failed: %v", err)
+	}
+
+	send(stdin, mcpStdioRequest{JSONRPC: "2.0", ID: ptr(3), Method: "tools/list",
+		Params: json.RawMessage(`{}`)})
+	if _, _, err := recvResponse(reader, 3, 3*time.Second); err != nil {
+		t.Fatalf("tools/list failed: %v", err)
+	}
+
+	return stdin, reader, 4
+}
+
+type toolCallTest struct {
+	name    string
+	tool    string
+	args    json.RawMessage
+	wantErr bool
+}
+
+func runToolTests(t *testing.T, stdin io.WriteCloser, reader *bufio.Reader, nextID int, tests []toolCallTest) {
+	t.Helper()
+
+	for i, tt := range tests {
+		id := nextID + i
+		t.Run(tt.name, func(t *testing.T) {
+			err := send(stdin, mcpStdioRequest{
+				JSONRPC: "2.0",
+				ID:      ptr(id),
+				Method:  "tools/call",
+				Params:  json.RawMessage(`{"name":"` + tt.tool + `","arguments":` + string(tt.args) + `}`),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			res, logs, err := recvResponse(reader, id, 3*time.Second)
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			for _, l := range logs {
-				t.Logf("Test: %d, Level: %s, Logger: %s, Data: %+v", i+1, l.Level, l.Logger, l.Data)
+				t.Logf("Level: %s, Logger: %s, Data: %+v", l.Level, l.Logger, l.Data)
 			}
 
 			if res.Result != nil {
-				var resultPayload mcpResult
-				err = json.Unmarshal(res.Result, &resultPayload)
-				if err != nil {
+				var result mcpResult
+				if err = json.Unmarshal(res.Result, &result); err != nil {
 					t.Fatal(err)
 				}
-
-				if resultPayload.IsError {
-					t.Logf("received error response %s", resultPayload.Content)
-					t.Fatal()
+				if result.IsError && !tt.wantErr {
+					t.Fatalf("tool returned unexpected error: %s", result.Content)
+				}
+				if !result.IsError && tt.wantErr {
+					t.Fatalf("expected tool error, got success: %s", result.Content)
 				}
 			}
-
-			t.Logf("Test %d: ID: %d, result: %s", i+1, res.ID, res.Result)
-		} else {
-			t.Logf("Test %s does not have a response", test.name)
-		}
+		})
 	}
+}
+
+func TestToolCallsUserPassword(t *testing.T) {
+	stdin, reader, nextID := setupMCPSession(t, nil)
+
+	runToolTests(t, stdin, reader, nextID, []toolCallTest{
+		{"get-connect-projects", "get-connect-projects", json.RawMessage(`{}`), false},
+		{"search-users", "search-users", json.RawMessage(`{"criteria":"ramon"}`), false},
+		{"get-my-delegations", "get-my-delegations", json.RawMessage(`{}`), false},
+	})
+}
+
+func TestToolCallsAuthFailure(t *testing.T) {
+	stdin, reader, nextID := setupMCPSession(t, map[string]string{
+		"RI_USER":     "invalid-user",
+		"RI_PASSWORD": "invalid-password",
+	})
+
+	runToolTests(t, stdin, reader, nextID, []toolCallTest{
+		{"get-connect-projects", "get-connect-projects", json.RawMessage(`{}`), true},
+	})
+}
+
+func TestToolCallsServiceIdentity(t *testing.T) {
+	stdin, reader, nextID := setupMCPSession(t, map[string]string{
+		"RI_USER":                        "",
+		"RI_PASSWORD":                    "",
+		"RI_SERVICE_IDENTITY_SECRET_KEY": os.Getenv("RI_SERVICE_IDENTITY_SECRET_KEY"),
+	})
+
+	runToolTests(t, stdin, reader, nextID, []toolCallTest{
+		{"get-connect-projects", "get-connect-projects", json.RawMessage(`{}`), false},
+	})
 }
