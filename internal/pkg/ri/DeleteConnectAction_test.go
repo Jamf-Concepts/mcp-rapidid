@@ -11,23 +11,23 @@ import (
 	"github.com/hatch-ed-com/ri-sdk-go/pkg/rapididentity"
 )
 
-func TestGetConnectProjects(t *testing.T) {
+func TestDeleteConnectAction(t *testing.T) {
 	tests := []struct {
 		name         string
 		handler      http.HandlerFunc
 		wantErr      bool
 		errContains  string
-		assertOutput func(t *testing.T, output rapididentity.GetConnectProjectsOutput)
+		assertOutput func(t *testing.T, output rapididentity.DeleteConnectActionByIdOutput)
 	}{
 		{
 			name: "success",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(`{"projects":[ { "name": "myproject" }]}`))
+				w.Write([]byte(`{"success":true,"message":"","httpStatus":200}`))
 			},
-			assertOutput: func(t *testing.T, output rapididentity.GetConnectProjectsOutput) {
-				if output.Projects[0].Name != "myproject" {
-					t.Fatalf("expected myproject, got %s", output.Projects[0].Name)
+			assertOutput: func(t *testing.T, output rapididentity.DeleteConnectActionByIdOutput) {
+				if !output.DeleteOperationStatus.Success {
+					t.Fatal("expected success to be true")
 				}
 			},
 		},
@@ -35,22 +35,18 @@ func TestGetConnectProjects(t *testing.T) {
 			name: "malformed json body on 200",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(`{"projects": [`))
+				w.Write([]byte(`{"deleteOperationStatus":`))
 			},
 			wantErr: true,
 		},
 		{
-			name: "null response body returns empty projects",
+			name: "action not found",
 			handler: func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(`null`))
+				w.WriteHeader(http.StatusNotFound)
+				w.Write([]byte(`{"message":"Not Found"}`))
 			},
-			wantErr: false,
-			assertOutput: func(t *testing.T, output rapididentity.GetConnectProjectsOutput) {
-				if len(output.Projects) != 0 {
-					t.Fatalf("expected empty projects, got %d", len(output.Projects))
-				}
-			},
+			wantErr:     true,
+			errContains: "Not Found",
 		},
 	}
 
@@ -58,10 +54,10 @@ func TestGetConnectProjects(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mux := setup(t)
 			if tt.handler != nil {
-				mux.HandleFunc(baseUrlPath+"/admin/connect/projects", tt.handler)
+				mux.HandleFunc(baseUrlPath+"/admin/connect/actions/myaction", tt.handler)
 			}
 
-			_, output, err := GetConnectProjects(context.Background(), newReq(), GetConnectProjectsInput{})
+			_, output, err := DeleteConnectAction(context.Background(), newReq(), rapididentity.DeleteConnectActionByIdInput{Id: "myaction"})
 
 			if tt.wantErr && err == nil {
 				t.Fatal("expected error, got nil")
@@ -79,14 +75,14 @@ func TestGetConnectProjects(t *testing.T) {
 	}
 }
 
-func TestGetConnectProjectsNoSecretLeak(t *testing.T) {
+func TestDeleteConnectActionNoSecretLeak(t *testing.T) {
 	mux := setup(t)
-	mux.HandleFunc(baseUrlPath+"/admin/connect/projects", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc(baseUrlPath+"/admin/connect/actions/myaction", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"projects":[]}`))
+		w.Write([]byte(`{"success":true,"message":"","httpStatus":200}`))
 	})
 
 	assertNoSecretLeak(t, []string{mockPassword, "abcd"}, func() {
-		GetConnectProjects(context.Background(), newReq(), GetConnectProjectsInput{})
+		DeleteConnectAction(context.Background(), newReq(), rapididentity.DeleteConnectActionByIdInput{Id: "myaction"})
 	})
 }

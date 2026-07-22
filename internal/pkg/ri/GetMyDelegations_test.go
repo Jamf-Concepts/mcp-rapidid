@@ -7,27 +7,25 @@ import (
 	"net/http"
 	"strings"
 	"testing"
-
-	"github.com/hatch-ed-com/ri-sdk-go/pkg/rapididentity"
 )
 
-func TestGetConnectProjects(t *testing.T) {
+func TestGetMyDelegations(t *testing.T) {
 	tests := []struct {
 		name         string
 		handler      http.HandlerFunc
 		wantErr      bool
 		errContains  string
-		assertOutput func(t *testing.T, output rapididentity.GetConnectProjectsOutput)
+		assertOutput func(t *testing.T, output GetMyDelegationsOutput)
 	}{
 		{
-			name: "success",
+			name: "success empty delegations",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(`{"projects":[ { "name": "myproject" }]}`))
+				w.Write([]byte(`[]`))
 			},
-			assertOutput: func(t *testing.T, output rapididentity.GetConnectProjectsOutput) {
-				if output.Projects[0].Name != "myproject" {
-					t.Fatalf("expected myproject, got %s", output.Projects[0].Name)
+			assertOutput: func(t *testing.T, output GetMyDelegationsOutput) {
+				if len(output.Delegations) != 0 {
+					t.Fatalf("expected empty delegations, got %d", len(output.Delegations))
 				}
 			},
 		},
@@ -35,20 +33,20 @@ func TestGetConnectProjects(t *testing.T) {
 			name: "malformed json body on 200",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(`{"projects": [`))
+				w.Write([]byte(`[{`))
 			},
 			wantErr: true,
 		},
 		{
-			name: "null response body returns empty projects",
+			name: "null response body returns empty delegations",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte(`null`))
 			},
 			wantErr: false,
-			assertOutput: func(t *testing.T, output rapididentity.GetConnectProjectsOutput) {
-				if len(output.Projects) != 0 {
-					t.Fatalf("expected empty projects, got %d", len(output.Projects))
+			assertOutput: func(t *testing.T, output GetMyDelegationsOutput) {
+				if len(output.Delegations) != 0 {
+					t.Fatalf("expected empty delegations, got %d", len(output.Delegations))
 				}
 			},
 		},
@@ -58,10 +56,10 @@ func TestGetConnectProjects(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mux := setup(t)
 			if tt.handler != nil {
-				mux.HandleFunc(baseUrlPath+"/admin/connect/projects", tt.handler)
+				mux.HandleFunc(baseUrlPath+"/profiles/delegations/my", tt.handler)
 			}
 
-			_, output, err := GetConnectProjects(context.Background(), newReq(), GetConnectProjectsInput{})
+			_, output, err := GetMyDelegations(context.Background(), newReq(), GetMyDelegationsInput{})
 
 			if tt.wantErr && err == nil {
 				t.Fatal("expected error, got nil")
@@ -79,14 +77,14 @@ func TestGetConnectProjects(t *testing.T) {
 	}
 }
 
-func TestGetConnectProjectsNoSecretLeak(t *testing.T) {
+func TestGetMyDelegationsNoSecretLeak(t *testing.T) {
 	mux := setup(t)
-	mux.HandleFunc(baseUrlPath+"/admin/connect/projects", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc(baseUrlPath+"/profiles/delegations/my", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"projects":[]}`))
+		w.Write([]byte(`[]`))
 	})
 
 	assertNoSecretLeak(t, []string{mockPassword, "abcd"}, func() {
-		GetConnectProjects(context.Background(), newReq(), GetConnectProjectsInput{})
+		GetMyDelegations(context.Background(), newReq(), GetMyDelegationsInput{})
 	})
 }
