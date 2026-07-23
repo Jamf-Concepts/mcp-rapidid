@@ -16,12 +16,16 @@ import (
 
 func GetRapidIdentityOptions() rapididentity.Options {
 	host := os.Getenv("RI_HOST")
+	scheme := "https"
+	if strings.HasPrefix(host, "http://") {
+		scheme = "http"
+	}
 	host = strings.TrimPrefix(host, "https://")
 	host = strings.TrimPrefix(host, "http://")
 
 	options := rapididentity.Options{
 		HTTPClient: &http.Client{},
-		BaseUrl:    &url.URL{Scheme: "https", Host: host},
+		BaseUrl:    &url.URL{Scheme: scheme, Host: host},
 	}
 
 	serviceIdentitySecretKey := os.Getenv("RI_SERVICE_IDENTITY_SECRET_KEY")
@@ -42,7 +46,7 @@ func ToolSetup(req *mcp.CallToolRequest, loggerName string) (*rapididentity.Clie
 	th := helper.NewToolHelper(req, loggerName)
 	options := GetRapidIdentityOptions()
 
-	if options.RapidIdentityUser.Username != "" {
+	if options.RapidIdentityUser != nil && options.RapidIdentityUser.Username != "" {
 		th.Logger().Debug(fmt.Sprintf("connecting to %s with user %s with a password of length %d", options.BaseUrl, options.RapidIdentityUser.Username, len(options.RapidIdentityUser.Password)))
 	} else {
 		th.Logger().Debug(fmt.Sprintf("connecting to %s with a service identity with key length %d", options.BaseUrl, len(options.ServiceIdentity)))

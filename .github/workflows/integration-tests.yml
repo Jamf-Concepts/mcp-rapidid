@@ -1,0 +1,25 @@
+name: Integration Tests
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  integration-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.25"
+      - name: Build binary
+        run: go build -o mcp-rapidid ./cmd/mcp-rapidid
+      - name: Run integration tests
+        env:
+          RI_MCP_BIN: ${{ github.workspace }}/mcp-rapidid
+          RI_HOST: ${{ secrets.RI_HOST }}
+          RI_USER: ${{ secrets.RI_USER }}
+          RI_PASSWORD: ${{ secrets.RI_PASSWORD }}
+          RI_SERVICE_IDENTITY_SECRET_KEY: ${{ secrets.RI_SERVICE_IDENTITY_SECRET_KEY }}
+        run: ./scripts/test-integration.sh

@@ -1,0 +1,88 @@
+// Copyright 2026, Jamf Software LLC
+
+package ri
+
+import (
+	"context"
+	"net/http"
+	"strings"
+	"testing"
+
+	"github.com/hatch-ed-com/ri-sdk-go/pkg/rapididentity"
+)
+
+func TestGetConnectAction(t *testing.T) {
+	tests := []struct {
+		name         string
+		handler      http.HandlerFunc
+		wantErr      bool
+		errContains  string
+		assertOutput func(t *testing.T, output rapididentity.GetConnectActionByIdOutput)
+	}{
+		{
+			name: "success",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{"id":"myaction","name":"myaction","project":"<Main>"}`))
+			},
+			assertOutput: func(t *testing.T, output rapididentity.GetConnectActionByIdOutput) {
+				if output.Action.Id != "myaction" {
+					t.Fatalf("expected action id myaction, got %q", output.Action.Id)
+				}
+			},
+		},
+		{
+			name: "malformed json body on 200",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{"action":`))
+			},
+			wantErr: true,
+		},
+		{
+			name: "action not found",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusNotFound)
+				w.Write([]byte(`{"message":"Not Found"}`))
+			},
+			wantErr:     true,
+			errContains: "Not Found",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mux := setup(t)
+			if tt.handler != nil {
+				mux.HandleFunc(baseUrlPath+"/admin/connect/actions/myaction", tt.handler)
+			}
+
+			_, output, err := GetConnectAction(context.Background(), newReq(), rapididentity.GetConnectActionByIdInput{Id: "myaction"})
+
+			if tt.wantErr && err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if tt.errContains != "" && !strings.Contains(err.Error(), tt.errContains) {
+				t.Fatalf("error %q does not contain %q", err.Error(), tt.errContains)
+			}
+			if tt.assertOutput != nil {
+				tt.assertOutput(t, output)
+			}
+		})
+	}
+}
+
+func TestGetConnectActionNoSecretLeak(t *testing.T) {
+	mux := setup(t)
+	mux.HandleFunc(baseUrlPath+"/admin/connect/actions/myaction", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"id":"myaction","name":"myaction","project":"<Main>"}`))
+	})
+
+	assertNoSecretLeak(t, []string{mockPassword, "abcd"}, func() {
+		GetConnectAction(context.Background(), newReq(), rapididentity.GetConnectActionByIdInput{Id: "myaction"})
+	})
+}
