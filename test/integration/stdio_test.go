@@ -1,5 +1,7 @@
 //go:build integration
 
+// Copyright 2026, Jamf Software LLC
+
 package integration
 
 import (
