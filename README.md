@@ -81,7 +81,7 @@ The "Service ID Compatible" column indicates whether a RapidID Service Identity 
 | `delete-connect-action` | Deletes a RapidID Connect action set by ID | Yes |
 | `get-password-policies-for` | Retrieves the password policy for specified users | Yes |
 | `set-password` | Sets the RapidID password for one or more users via delegations | Yes |
-| `run-connect-action` | Runs a RapidID Connect action set and returns the HTML log | No |
+| `run-connect-action` | Runs a RapidID Connect action set and returns the HTML log | Yes |
 | `get-connect-files` | Returns metadata for files and directories within the RapidID Connect files module | Yes |
 | `get-connect-file-content` | Returns the text content of a file from the RapidID Connect files module | Yes |
 
