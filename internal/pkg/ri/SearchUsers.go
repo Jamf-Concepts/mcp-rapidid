@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/Jamf-Concepts/mcp-rapidid/internal/pkg/helper"
 	"github.com/hatch-ed-com/ri-sdk-go/pkg/rapididentity"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -41,6 +42,13 @@ type Delegation struct {
 	Type        string `json:"type" jsonschema:"The delegation type. This is either MY or customer. a MY delegation is for viewing your own user data while CUSTOM is for viewing other users' data'"`
 }
 
+// reportingUsersResponse is the envelope returned by the GET /reporting/users
+// endpoint, which wraps the user list rather than returning a bare array.
+type reportingUsersResponse struct {
+	Users              []User `json:"users"`
+	AdminLimitEnforced bool   `json:"adminLimitEnforced"`
+}
+
 func SearchRapidIdentityUsers(ctx context.Context, req *mcp.CallToolRequest, input UserInput) (*mcp.CallToolResult, UserOutput, error) {
 	client, th, err := ToolSetup(req, searchRapidIdentityUsersToolName)
 	if err != nil {
@@ -55,6 +63,13 @@ func SearchRapidIdentityUsers(ctx context.Context, req *mcp.CallToolRequest, inp
 			LogRIError(th, "unable to close rapididentity client", err)
 		}
 	}(client)
+
+	// Service Identities do not return results through the delegation-scoped
+	// users search, so search via the reporting endpoint instead. Username and
+	// password callers continue to use the delegation-based path below.
+	if UsingServiceIdentity() {
+		return searchUsersViaReporting(ctx, th, client, input)
+	}
 
 	th.Logger().Info("Calling profiles/delegations/my endpoint")
 	th.Notify().Info("Retrieving delegations for caller")
@@ -137,4 +152,51 @@ func SearchRapidIdentityUsers(ctx context.Context, req *mcp.CallToolRequest, inp
 	th.Notify().Info(fmt.Sprintf("Retrieved %d users", len(userOutputs)))
 
 	return nil, UserOutput{Users: userOutputs}, nil
+}
+
+// searchUsersViaReporting searches for users through the GET /reporting/users
+// endpoint. This path is used when authenticating with a Service Identity,
+// which does not return results through the delegation-scoped users search.
+func searchUsersViaReporting(ctx context.Context, th *helper.ToolHelper, client *rapididentity.Client, input UserInput) (*mcp.CallToolResult, UserOutput, error) {
+	path := fmt.Sprintf("reporting/users?criteria=%s", url.QueryEscape(input.Criteria))
+
+	th.Logger().Debug("Call GET reporting/users endpoint", "path", path)
+	th.Logger().Info("Searching users via the reporting endpoint for a service identity")
+	th.Notify().Info("Searching for users based on criteria")
+
+	userRes, err := client.DoCustomRequest(ctx, "GET", path, nil)
+	if err != nil {
+		LogRIError(th, "unable to retrieve users based on supplied criteria", err)
+		return nil, UserOutput{}, err
+	}
+
+	th.Logger().Debug("GET "+path+" response", "response", userRes)
+
+	defer func(res *http.Response) {
+		err := res.Body.Close()
+		if err != nil {
+			th.Logger().Warn("issue closing response body for "+path+" endpoint response", "error", err)
+		}
+	}(userRes)
+
+	userResBody, err := io.ReadAll(userRes.Body)
+	if err != nil {
+		th.Logger().Error("unable to read response body for the "+path+" response", "error", err, "status", userRes.StatusCode)
+		return nil, UserOutput{}, err
+	}
+
+	th.Logger().Debug("GET "+path+" response body", "body", string(userResBody))
+
+	var reportingRes reportingUsersResponse
+
+	err = json.Unmarshal(userResBody, &reportingRes)
+	if err != nil {
+		th.Logger().Error("unable to unmarshal json for GET "+path+" response body", "error", err)
+		return nil, UserOutput{}, err
+	}
+
+	th.Logger().Debug("Unmarshaled user outputs", "users", reportingRes.Users)
+	th.Notify().Info(fmt.Sprintf("Retrieved %d users", len(reportingRes.Users)))
+
+	return nil, UserOutput{Users: reportingRes.Users}, nil
 }

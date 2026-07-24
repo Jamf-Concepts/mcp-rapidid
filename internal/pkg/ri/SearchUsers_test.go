@@ -119,3 +119,84 @@ func TestSearchRapidIdentityUsersNoSecretLeak(t *testing.T) {
 		SearchRapidIdentityUsers(context.Background(), newReq(), UserInput{Criteria: "testuser"})
 	})
 }
+
+func TestSearchRapidIdentityUsersServiceIdentity(t *testing.T) {
+	tests := []struct {
+		name         string
+		usersHandler http.HandlerFunc
+		wantErr      bool
+		assertOutput func(t *testing.T, output UserOutput)
+	}{
+		{
+			name: "success returns users from reporting endpoint",
+			usersHandler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{"users":[{"id":"idauto-1","username":"jdoe","firstName":"Jane","lastName":"Doe"}],"adminLimitEnforced":false}`))
+			},
+			assertOutput: func(t *testing.T, output UserOutput) {
+				if len(output.Users) != 1 {
+					t.Fatalf("expected 1 user, got %d", len(output.Users))
+				}
+				if output.Users[0].Username != "jdoe" {
+					t.Fatalf("expected username jdoe, got %q", output.Users[0].Username)
+				}
+			},
+		},
+		{
+			name: "success empty users",
+			usersHandler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{"users":[],"adminLimitEnforced":false}`))
+			},
+			assertOutput: func(t *testing.T, output UserOutput) {
+				if len(output.Users) != 0 {
+					t.Fatalf("expected empty users, got %d", len(output.Users))
+				}
+			},
+		},
+		{
+			name: "malformed reporting json",
+			usersHandler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{`))
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mux := setup(t)
+			t.Setenv("RI_SERVICE_IDENTITY_SECRET_KEY", "svc-secret")
+			if tt.usersHandler != nil {
+				mux.HandleFunc(baseUrlPath+"/reporting/users", tt.usersHandler)
+			}
+
+			_, output, err := SearchRapidIdentityUsers(context.Background(), newReq(), UserInput{Criteria: "testuser"})
+
+			if tt.wantErr && err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if tt.assertOutput != nil {
+				tt.assertOutput(t, output)
+			}
+		})
+	}
+}
+
+func TestSearchRapidIdentityUsersServiceIdentityNoSecretLeak(t *testing.T) {
+	serviceKey := "svc-secret-do-not-log"
+	mux := setup(t)
+	t.Setenv("RI_SERVICE_IDENTITY_SECRET_KEY", serviceKey)
+	mux.HandleFunc(baseUrlPath+"/reporting/users", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"users":[],"adminLimitEnforced":false}`))
+	})
+
+	assertNoSecretLeak(t, []string{serviceKey}, func() {
+		SearchRapidIdentityUsers(context.Background(), newReq(), UserInput{Criteria: "testuser"})
+	})
+}

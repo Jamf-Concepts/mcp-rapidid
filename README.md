@@ -66,7 +66,7 @@ The "Service ID Compatible" column indicates whether a RapidID Service Identity 
 
 | Tool | Description | Service ID Compatible |
 |------|-------------|----------------------|
-| `search-users` | Performs a simple search based on the delegations available to the authenticated user | No |
+| `search-users` | Performs a simple user search — across the caller's delegations for username/password, or via the reporting endpoint for service identities | Yes |
 | `search-entitlements-for-user` | Performs a search of entitlements for the given user based on their idautoID | Yes |
 | `start-entitlement-request` | Initiates an entitlement request for a particular user and entitlement based on idautoID and resourceId respectively | Yes |
 | `get-my-delegations` | Gets delegations that are accessible to the authenticated user | Yes |
@@ -93,7 +93,7 @@ The "Service ID Compatible" column indicates whether a RapidID Service Identity 
 ## Troubleshooting
 
 - On authentication failures ensure RI_HOST, RI_USER / RI_PASSWORD, or RI_SERVICE_IDENTITY_SECRET_KEY are set correctly
-- If you receive an unexpected empty array `[]` when using the `search-users` or `get-user-info-in-delegation`, this is most likely due to utilizing service identities and switching to username and password will resolve the issue.
+- If you receive an unexpected empty array `[]` when using `get-user-info-in-delegation`, this is most likely due to utilizing service identities and switching to username and password will resolve the issue.
 - Service identities do not have access to all endpoints, even with the Tenant Administrator role, and this typically shows as receiving an empty response such as an empty array `[]` or empty object `{}`
 - The `get-user-info-in-delegation` does not support pagination, which can cause tool response size errors. A workaround for this is to use a combination of the `search-groups` and the `get-group-members` tools to chunk out users into multiple tool calls as the `get-group-members` tool supports pagination.
 - If you receive a save error when using the `save-connect-actions` tool this is most likely due to not iterating the version number. Ensure that the most recent version of the action set is retrieved first using `get-connect-action` so that you iterate the version number properly

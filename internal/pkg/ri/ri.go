@@ -42,6 +42,13 @@ func GetRapidIdentityOptions() rapididentity.Options {
 	return options
 }
 
+// UsingServiceIdentity reports whether the server is configured to authenticate
+// with a Service Identity. A Service Identity takes precedence over
+// username/password, mirroring the selection made in GetRapidIdentityOptions.
+func UsingServiceIdentity() bool {
+	return os.Getenv("RI_SERVICE_IDENTITY_SECRET_KEY") != ""
+}
+
 func ToolSetup(req *mcp.CallToolRequest, loggerName string) (*rapididentity.Client, *helper.ToolHelper, error) {
 	th := helper.NewToolHelper(req, loggerName)
 	options := GetRapidIdentityOptions()
