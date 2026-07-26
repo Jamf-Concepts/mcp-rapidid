@@ -91,6 +91,11 @@ func SearchRapidIdentityUsers(ctx context.Context, req *mcp.CallToolRequest, inp
 		}
 	}(delegationRes)
 
+	if err := checkResponseStatus(delegationRes); err != nil {
+		LogRIError(ctx, th, "unable to retrieve delegations for user", err)
+		return nil, UserOutput{}, err
+	}
+
 	delegationResBody, err := io.ReadAll(delegationRes.Body)
 	if err != nil {
 		th.Logger().Error("unable to read response body for the profiles/delegations/my response", "error", err, "status", delegationRes.StatusCode)
@@ -135,6 +140,11 @@ func SearchRapidIdentityUsers(ctx context.Context, req *mcp.CallToolRequest, inp
 			th.Logger().Warn("issue closing response body for "+path+" endpoint response", "error", cerr)
 		}
 	}(userRes)
+
+	if err := checkResponseStatus(userRes); err != nil {
+		LogRIError(ctx, th, "unable to retrieve users based on supplied criteria", err)
+		return nil, UserOutput{}, err
+	}
 
 	userResBody, err := io.ReadAll(userRes.Body)
 	if err != nil {
@@ -183,6 +193,11 @@ func searchUsersViaReporting(ctx context.Context, th *helper.ToolHelper, client 
 			th.Logger().Warn("issue closing response body for "+path+" endpoint response", "error", cerr)
 		}
 	}(userRes)
+
+	if err := checkResponseStatus(userRes); err != nil {
+		LogRIError(ctx, th, "unable to retrieve users based on supplied criteria", err)
+		return nil, UserOutput{}, err
+	}
 
 	userResBody, err := io.ReadAll(userRes.Body)
 	if err != nil {

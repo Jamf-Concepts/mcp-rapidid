@@ -74,6 +74,33 @@ func TestSearchRapidIdentityUsers(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			// A non-2xx response whose body is valid JSON must be surfaced as an
+			// error, not silently unmarshalled into an empty "success". The
+			// "users call fails" case above returns an object that cannot decode
+			// into the user slice, so it passes on the unmarshal error alone.
+			name: "users error status with valid json body",
+			delegationHandler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`[{"id":"deleg-1","name":"My Delegation","type":"MY"}]`))
+			},
+			usersHandler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusForbidden)
+				w.Write([]byte(`[]`))
+			},
+			wantErr:     true,
+			errContains: "non-success status",
+		},
+		{
+			// Same for the delegation lookup that precedes the user search.
+			name: "delegation error status with valid json body",
+			delegationHandler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusForbidden)
+				w.Write([]byte(`[]`))
+			},
+			wantErr:     true,
+			errContains: "non-success status",
+		},
 	}
 
 	for _, tt := range tests {
@@ -125,6 +152,7 @@ func TestSearchRapidIdentityUsersServiceIdentity(t *testing.T) {
 		name         string
 		usersHandler http.HandlerFunc
 		wantErr      bool
+		errContains  string
 		assertOutput func(t *testing.T, output UserOutput)
 	}{
 		{
@@ -162,6 +190,17 @@ func TestSearchRapidIdentityUsersServiceIdentity(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			// A non-2xx response whose body is valid JSON must be surfaced as an
+			// error, not silently unmarshalled into an empty "success".
+			name: "error status with valid json body",
+			usersHandler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusForbidden)
+				w.Write([]byte(`{"users":[],"adminLimitEnforced":false}`))
+			},
+			wantErr:     true,
+			errContains: "non-success status",
+		},
 	}
 
 	for _, tt := range tests {
@@ -179,6 +218,9 @@ func TestSearchRapidIdentityUsersServiceIdentity(t *testing.T) {
 			}
 			if !tt.wantErr && err != nil {
 				t.Fatalf("unexpected error: %v", err)
+			}
+			if tt.errContains != "" && !strings.Contains(err.Error(), tt.errContains) {
+				t.Fatalf("error %q does not contain %q", err.Error(), tt.errContains)
 			}
 			if tt.assertOutput != nil {
 				tt.assertOutput(t, output)

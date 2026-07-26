@@ -77,6 +77,11 @@ func SearchGroups(ctx context.Context, req *mcp.CallToolRequest, input SearchGro
 		}
 	}(groupsRes)
 
+	if err := checkResponseStatus(groupsRes); err != nil {
+		LogRIError(ctx, th, "unable to search groups", err)
+		return nil, SearchGroupsOutput{}, err
+	}
+
 	resBody, err := io.ReadAll(groupsRes.Body)
 	if err != nil {
 		th.Logger().Error("unable to read response body for "+path+" response", "error", err, "status", groupsRes.StatusCode)

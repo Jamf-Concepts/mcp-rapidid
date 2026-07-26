@@ -61,6 +61,18 @@ func TestStartEntitlementRequest(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			// The "unauthorized" case above passes on the unmarshal error alone,
+			// since an object cannot decode into the request-id slice. A body that
+			// decodes cleanly is what actually exercises the status check.
+			name: "error status with valid json body",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusForbidden)
+				w.Write([]byte(`[]`))
+			},
+			wantErr:     true,
+			errContains: "non-success status",
+		},
 	}
 
 	for _, tt := range tests {
