@@ -51,6 +51,11 @@ func GetMyDelegations(ctx context.Context, req *mcp.CallToolRequest, input GetMy
 		}
 	}(delegationRes)
 
+	if err := checkResponseStatus(delegationRes); err != nil {
+		LogRIError(th, "unable to retrieve delegations", err)
+		return nil, GetMyDelegationsOutput{}, err
+	}
+
 	delegationResBody, err := io.ReadAll(delegationRes.Body)
 	if err != nil {
 		th.Logger().Error("unable to read response body for the profiles/delegations/my response", "error", err, "status", delegationRes.StatusCode)

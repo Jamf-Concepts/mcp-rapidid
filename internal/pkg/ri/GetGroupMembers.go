@@ -63,6 +63,11 @@ func GetGroupMembers(ctx context.Context, req *mcp.CallToolRequest, input GetGro
 		}
 	}(membersRes)
 
+	if err := checkResponseStatus(membersRes); err != nil {
+		LogRIError(th, "unable to retrieve group members", err)
+		return nil, GetGroupMembersOutput{}, err
+	}
+
 	membersBody, err := io.ReadAll(membersRes.Body)
 	if err != nil {
 		th.Logger().Error("unable to read response body for "+path+" response", "error", err, "status", membersRes.StatusCode)

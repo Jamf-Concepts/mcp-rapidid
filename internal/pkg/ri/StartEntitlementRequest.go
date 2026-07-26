@@ -93,6 +93,11 @@ func StartEntitlementRequest(ctx context.Context, req *mcp.CallToolRequest, inpu
 		}
 	}(startTaskRes)
 
+	if err := checkResponseStatus(startTaskRes); err != nil {
+		LogRIError(th, "unable to start entitlement task", err)
+		return nil, StartEntitlementRequestOutput{}, err
+	}
+
 	startTaskBody, err := io.ReadAll(startTaskRes.Body)
 	if err != nil {
 		th.Logger().Error("unable to read response body for workflow/tasks/startTask response", "error", err, "status", startTaskRes.StatusCode)

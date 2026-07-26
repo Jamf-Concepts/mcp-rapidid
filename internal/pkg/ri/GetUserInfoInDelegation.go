@@ -72,6 +72,11 @@ func GetUserInfoInDelegation(ctx context.Context, req *mcp.CallToolRequest, inpu
 		}
 	}(profilesRes)
 
+	if err := checkResponseStatus(profilesRes); err != nil {
+		LogRIError(th, "unable to retrieve user info in delegation", err)
+		return nil, UserInfoInDelegationOutput{}, err
+	}
+
 	profilesBody, err := io.ReadAll(profilesRes.Body)
 	if err != nil {
 		th.Logger().Error("unable to read response body for "+path+" response", "error", err, "status", profilesRes.StatusCode)
