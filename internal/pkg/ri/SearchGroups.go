@@ -9,7 +9,9 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 
+	"github.com/Jamf-Concepts/mcp-rapidid/internal/pkg/telemetry"
 	"github.com/hatch-ed-com/ri-sdk-go/pkg/rapididentity"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -41,16 +43,19 @@ type Group struct {
 }
 
 func SearchGroups(ctx context.Context, req *mcp.CallToolRequest, input SearchGroupsInput) (*mcp.CallToolResult, SearchGroupsOutput, error) {
-	client, th, err := ToolSetup(req, searchGroupsToolName)
-	if err != nil {
-		return nil, SearchGroupsOutput{}, err
+	var err error
+	ctx, client, th, setupErr := ToolSetup(ctx, req, searchGroupsToolName)
+	if setupErr != nil {
+		return nil, SearchGroupsOutput{}, setupErr
 	}
+	start := time.Now()
+	defer telemetry.RecordCompletion(ctx, searchGroupsToolName, start, &err)
 
 	th.Logger().Info(searchGroupsToolName+" tool called", "criteria", input.Criteria)
 
 	defer func(c *rapididentity.Client) {
 		if err := c.Close(); err != nil {
-			LogRIError(th, "unable to close rapididentity client", err)
+			LogRIError(ctx, th, "unable to close rapididentity client", err)
 		}
 	}(client)
 
@@ -60,7 +65,7 @@ func SearchGroups(ctx context.Context, req *mcp.CallToolRequest, input SearchGro
 	th.Notify().Info("Searching for groups based on criteria")
 	groupsRes, err := client.DoCustomRequest(ctx, "POST", path, nil)
 	if err != nil {
-		LogRIError(th, "unable to search groups", err)
+		LogRIError(ctx, th, "unable to search groups", err)
 		return nil, SearchGroupsOutput{}, err
 	}
 
@@ -75,6 +80,7 @@ func SearchGroups(ctx context.Context, req *mcp.CallToolRequest, input SearchGro
 	resBody, err := io.ReadAll(groupsRes.Body)
 	if err != nil {
 		th.Logger().Error("unable to read response body for "+path+" response", "error", err, "status", groupsRes.StatusCode)
+		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", searchGroupsToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, SearchGroupsOutput{}, err
 	}
 
@@ -84,6 +90,7 @@ func SearchGroups(ctx context.Context, req *mcp.CallToolRequest, input SearchGro
 	err = json.Unmarshal(resBody, &output)
 	if err != nil {
 		th.Logger().Error("unable to unmarshal json for POST "+path+" response body", "error", err)
+		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", searchGroupsToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, SearchGroupsOutput{}, err
 	}
 

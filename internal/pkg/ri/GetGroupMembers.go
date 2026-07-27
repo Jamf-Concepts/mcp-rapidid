@@ -9,7 +9,9 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 
+	"github.com/Jamf-Concepts/mcp-rapidid/internal/pkg/telemetry"
 	"github.com/hatch-ed-com/ri-sdk-go/pkg/rapididentity"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -29,16 +31,19 @@ type GetGroupMembersOutput struct {
 }
 
 func GetGroupMembers(ctx context.Context, req *mcp.CallToolRequest, input GetGroupMembersInput) (*mcp.CallToolResult, GetGroupMembersOutput, error) {
-	client, th, err := ToolSetup(req, getGroupMembersToolName)
-	if err != nil {
-		return nil, GetGroupMembersOutput{}, err
+	var err error
+	ctx, client, th, setupErr := ToolSetup(ctx, req, getGroupMembersToolName)
+	if setupErr != nil {
+		return nil, GetGroupMembersOutput{}, setupErr
 	}
+	start := time.Now()
+	defer telemetry.RecordCompletion(ctx, getGroupMembersToolName, start, &err)
 
 	th.Logger().Info(getGroupMembersToolName+" tool called", "groupId", input.GroupId, "pageSize", input.PageSize)
 
 	defer func(c *rapididentity.Client) {
 		if err := c.Close(); err != nil {
-			LogRIError(th, "unable to close rapididentity client", err)
+			LogRIError(ctx, th, "unable to close rapididentity client", err)
 		}
 	}(client)
 
@@ -51,7 +56,7 @@ func GetGroupMembers(ctx context.Context, req *mcp.CallToolRequest, input GetGro
 	th.Notify().Info("Retrieving group members")
 	membersRes, err := client.DoCustomRequest(ctx, "GET", path, nil)
 	if err != nil {
-		LogRIError(th, "unable to retrieve group members", err)
+		LogRIError(ctx, th, "unable to retrieve group members", err)
 		return nil, GetGroupMembersOutput{}, err
 	}
 
@@ -66,6 +71,7 @@ func GetGroupMembers(ctx context.Context, req *mcp.CallToolRequest, input GetGro
 	membersBody, err := io.ReadAll(membersRes.Body)
 	if err != nil {
 		th.Logger().Error("unable to read response body for "+path+" response", "error", err, "status", membersRes.StatusCode)
+		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", getGroupMembersToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, GetGroupMembersOutput{}, err
 	}
 
@@ -76,6 +82,7 @@ func GetGroupMembers(ctx context.Context, req *mcp.CallToolRequest, input GetGro
 	err = json.Unmarshal(membersBody, &output)
 	if err != nil {
 		th.Logger().Error("unable to unmarshal json for GET "+path+" response body", "error", err)
+		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", getGroupMembersToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, GetGroupMembersOutput{}, err
 	}
 

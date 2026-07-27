@@ -4,7 +4,9 @@ package ri
 
 import (
 	"context"
+	"time"
 
+	"github.com/Jamf-Concepts/mcp-rapidid/internal/pkg/telemetry"
 	"github.com/hatch-ed-com/ri-sdk-go/pkg/rapididentity"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -16,16 +18,19 @@ type GetConnectFileContentOutput struct {
 }
 
 func GetConnectFileContent(ctx context.Context, req *mcp.CallToolRequest, input rapididentity.GetConnectFileContentInput) (*mcp.CallToolResult, GetConnectFileContentOutput, error) {
-	client, th, err := ToolSetup(req, getConnectFileContentToolName)
-	if err != nil {
-		return nil, GetConnectFileContentOutput{}, err
+	var err error
+	ctx, client, th, setupErr := ToolSetup(ctx, req, getConnectFileContentToolName)
+	if setupErr != nil {
+		return nil, GetConnectFileContentOutput{}, setupErr
 	}
+	start := time.Now()
+	defer telemetry.RecordCompletion(ctx, getConnectFileContentToolName, start, &err)
 
 	th.Logger().Info(getConnectFileContentToolName+" tool called", "path", input.Path)
 
 	defer func(c *rapididentity.Client) {
 		if err := c.Close(); err != nil {
-			LogRIError(th, "unable to close rapididentity client", err)
+			LogRIError(ctx, th, "unable to close rapididentity client", err)
 		}
 	}(client)
 
@@ -33,7 +38,7 @@ func GetConnectFileContent(ctx context.Context, req *mcp.CallToolRequest, input 
 	th.Notify().Info("Retrieving Connect file content")
 	result, err := client.GetConnectFileContent(ctx, input)
 	if err != nil {
-		LogRIError(th, "unable to retrieve Connect file content", err)
+		LogRIError(ctx, th, "unable to retrieve Connect file content", err)
 		return nil, GetConnectFileContentOutput{}, err
 	}
 

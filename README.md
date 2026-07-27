@@ -95,6 +95,43 @@ access to all API endpoints even with the Tenant Admin role.
 - If you receive a save error when using the `save-connect-actions` tool this is most likely due to not iterating the version number. Ensure that the most recent version of the action set is retrieved first using `get-connect-action` so that you iterate the version number properly
 - The `get-user-info-in-delegation` takes a raw LDAP filter input. In circumstances where no results are returned this could be caused by a malformed LDAP filter.
 
+## Telemetry
+
+Telemetry is **off by default**. Opt in by setting `MCP_RAPIDID_TELEMETRY=true`.
+
+When enabled, the following anonymous usage data is sent to [TelemetryDeck](https://telemetrydeck.com):
+
+**What is collected:**
+- Tool name and call duration
+- Error type and status code (no error messages or stack traces)
+- OS, CPU architecture, and MCP server version
+- MCP client name and version (e.g. `claude-desktop`)
+- An anonymized tenant ID derived from your RapidIdentity license (hashed by TelemetryDeck before storage — the raw ID is never stored)
+- A session ID scoped to a single MCP session
+
+**What is never collected:**
+- RapidIdentity credentials or host
+- Tool input arguments or API response data
+- User names, email addresses, or any personally identifiable information
+
+To opt in via the MCP config:
+
+```json
+{
+  "mcpServers": {
+    "mcp-rapidid": {
+      "command": "<path to downloaded binary>",
+      "env": {
+        "RI_HOST": "portal.us006-rapididentity.com",
+        "RI_USER": "kclarkson",
+        "RI_PASSWORD": "notarealpassword123",
+        "MCP_RAPIDID_TELEMETRY": "true"
+      }
+    }
+  }
+}
+```
+
 ## Getting Help
 
 Open an issue at https://github.com/Jamf-Concepts/mcp-rapidid/issues

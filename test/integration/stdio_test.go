@@ -142,10 +142,11 @@ func setupMCPSession(t *testing.T, envOverrides map[string]string) (io.WriteClos
 	}
 
 	env := map[string]string{
-		"RI_HOST":      os.Getenv("RI_HOST"),
-		"RI_USER":      os.Getenv("RI_USER"),
-		"RI_PASSWORD":  os.Getenv("RI_PASSWORD"),
-		"RI_LOG_LEVEL": os.Getenv("RI_LOG_LEVEL"),
+		"RI_HOST":               os.Getenv("RI_HOST"),
+		"RI_USER":               os.Getenv("RI_USER"),
+		"RI_PASSWORD":           os.Getenv("RI_PASSWORD"),
+		"RI_LOG_LEVEL":          os.Getenv("RI_LOG_LEVEL"),
+		"MCP_RAPIDID_TELEMETRY": os.Getenv("MCP_RAPIDID_TELEMETRY"),
 	}
 	for k, v := range envOverrides {
 		env[k] = v
