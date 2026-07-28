@@ -133,13 +133,13 @@ func LogRIError(ctx context.Context, th *helper.ToolHelper, message string, err 
 			"reqUrl", riError.ReqUrl.String(),
 			"code", riError.Code)
 		telemetry.RecordError(ctx,
-			fmt.Sprintf("RapidIdMcp.ToolError.%s", th.ToolName()),
+			fmt.Sprintf(telemetry.EventPrefix+"ToolError.%s", th.ToolName()),
 			fmt.Sprintf("error occurred calling RapidIdentity API with status code %d", riError.Code),
 			telemetry.ErrorCategoryThrownException)
 	} else {
 		th.Logger().Error(message, "error", err)
 		telemetry.RecordError(ctx,
-			fmt.Sprintf("RapidIdMcp.ToolError.%s", th.ToolName()),
+			fmt.Sprintf(telemetry.EventPrefix+"ToolError.%s", th.ToolName()),
 			"see server logs",
 			telemetry.ErrorCategoryThrownException)
 	}
