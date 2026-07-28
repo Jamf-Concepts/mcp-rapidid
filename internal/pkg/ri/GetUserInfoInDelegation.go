@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
+	"github.com/Jamf-Concepts/mcp-rapidid/internal/pkg/telemetry"
 	"github.com/hatch-ed-com/ri-sdk-go/pkg/rapididentity"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -38,16 +40,19 @@ type DelegationUserAttribute struct {
 }
 
 func GetUserInfoInDelegation(ctx context.Context, req *mcp.CallToolRequest, input UserInfoInDelegationInput) (*mcp.CallToolResult, UserInfoInDelegationOutput, error) {
-	client, th, err := ToolSetup(req, getUserInfoInDelegationToolName)
-	if err != nil {
-		return nil, UserInfoInDelegationOutput{}, err
+	var err error
+	ctx, client, th, setupErr := ToolSetup(ctx, req, getUserInfoInDelegationToolName)
+	if setupErr != nil {
+		return nil, UserInfoInDelegationOutput{}, setupErr
 	}
+	start := time.Now()
+	defer telemetry.RecordCompletion(ctx, getUserInfoInDelegationToolName, start, &err)
 
 	th.Logger().Info(getUserInfoInDelegationToolName+" tool called", "delegationId", input.DelegationId)
 
 	defer func(c *rapididentity.Client) {
 		if err := c.Close(); err != nil {
-			LogRIError(th, "unable to close rapididentity client", err)
+			LogRIError(ctx, th, "unable to close rapididentity client", err)
 		}
 	}(client)
 
@@ -60,7 +65,7 @@ func GetUserInfoInDelegation(ctx context.Context, req *mcp.CallToolRequest, inpu
 	th.Notify().Info("Searching users in delegation")
 	profilesRes, err := client.DoCustomRequestWithHeaders(ctx, "POST", path, headers, body)
 	if err != nil {
-		LogRIError(th, "unable to retrieve user info in delegation", err)
+		LogRIError(ctx, th, "unable to retrieve user info in delegation", err)
 		return nil, UserInfoInDelegationOutput{}, err
 	}
 
@@ -75,6 +80,7 @@ func GetUserInfoInDelegation(ctx context.Context, req *mcp.CallToolRequest, inpu
 	profilesBody, err := io.ReadAll(profilesRes.Body)
 	if err != nil {
 		th.Logger().Error("unable to read response body for "+path+" response", "error", err, "status", profilesRes.StatusCode)
+		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", getUserInfoInDelegationToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, UserInfoInDelegationOutput{}, err
 	}
 
@@ -85,6 +91,7 @@ func GetUserInfoInDelegation(ctx context.Context, req *mcp.CallToolRequest, inpu
 	err = json.Unmarshal(profilesBody, &output)
 	if err != nil {
 		th.Logger().Error("unable to unmarshal json for POST "+path+" response body", "error", err)
+		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", getUserInfoInDelegationToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, UserInfoInDelegationOutput{}, err
 	}
 

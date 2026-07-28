@@ -4,7 +4,9 @@ package ri
 
 import (
 	"context"
+	"time"
 
+	"github.com/Jamf-Concepts/mcp-rapidid/internal/pkg/telemetry"
 	"github.com/hatch-ed-com/ri-sdk-go/pkg/rapididentity"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -12,16 +14,19 @@ import (
 const runConnectActionToolName = "run-connect-action"
 
 func RunConnectAction(ctx context.Context, req *mcp.CallToolRequest, input rapididentity.RunConnectActionInput) (*mcp.CallToolResult, rapididentity.RunConnectActionOutput, error) {
-	client, th, err := ToolSetup(req, runConnectActionToolName)
-	if err != nil {
-		return nil, rapididentity.RunConnectActionOutput{}, err
+	var err error
+	ctx, client, th, setupErr := ToolSetup(ctx, req, runConnectActionToolName)
+	if setupErr != nil {
+		return nil, rapididentity.RunConnectActionOutput{}, setupErr
 	}
+	start := time.Now()
+	defer telemetry.RecordCompletion(ctx, runConnectActionToolName, start, &err)
 
 	th.Logger().Info(runConnectActionToolName + " tool called")
 
 	defer func(c *rapididentity.Client) {
 		if err := c.Close(); err != nil {
-			LogRIError(th, "unable to close rapididentity client", err)
+			LogRIError(ctx, th, "unable to close rapididentity client", err)
 		}
 	}(client)
 
@@ -29,7 +34,7 @@ func RunConnectAction(ctx context.Context, req *mcp.CallToolRequest, input rapid
 	th.Notify().Info("Running Connect action")
 	result, err := client.RunConnectAction(ctx, input)
 	if err != nil {
-		LogRIError(th, "unable to run Connect action", err)
+		LogRIError(ctx, th, "unable to run Connect action", err)
 		return nil, rapididentity.RunConnectActionOutput{}, err
 	}
 

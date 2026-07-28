@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Jamf-Concepts/mcp-rapidid/internal/pkg/telemetry"
 	"github.com/hatch-ed-com/ri-sdk-go/pkg/rapididentity"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -105,16 +106,19 @@ func GetUserActivityFromAuditLog(ctx context.Context, req *mcp.CallToolRequest, 
 		}
 	}
 
-	client, th, err := ToolSetup(req, getUserActivityFromAuditLogToolName)
-	if err != nil {
-		return nil, empty, err
+	var err error
+	ctx, client, th, setupErr := ToolSetup(ctx, req, getUserActivityFromAuditLogToolName)
+	if setupErr != nil {
+		return nil, empty, setupErr
 	}
+	start := time.Now()
+	defer telemetry.RecordCompletion(ctx, getUserActivityFromAuditLogToolName, start, &err)
 
 	th.Logger().Info(getUserActivityFromAuditLogToolName+" tool called", "idautoId", input.IdautoID, "dateRange", input.DateRange)
 
 	defer func(c *rapididentity.Client) {
 		if cerr := c.Close(); cerr != nil {
-			LogRIError(th, "unable to close rapididentity client", cerr)
+			LogRIError(ctx, th, "unable to close rapididentity client", cerr)
 		}
 	}(client)
 
@@ -157,7 +161,8 @@ func GetUserActivityFromAuditLog(ctx context.Context, req *mcp.CallToolRequest, 
 
 	th.Logger().Info("Running audit report", "idautoId", input.IdautoID, "dateRange", input.DateRange)
 	th.Notify().Info("Running audit report for user")
-	result, err := client.RunAuditReport(ctx, rapididentity.RunAuditReportInput{
+	var result *rapididentity.RunAuditReportOutput
+	result, err = client.RunAuditReport(ctx, rapididentity.RunAuditReportInput{
 		Query: rapididentity.AuditReportQuery{
 			OperatorType: rapididentity.AND,
 			ChildNodes:   childNodes,
@@ -166,7 +171,7 @@ func GetUserActivityFromAuditLog(ctx context.Context, req *mcp.CallToolRequest, 
 		PageToken: input.PageToken,
 	})
 	if err != nil {
-		LogRIError(th, "unable to run audit report", err)
+		LogRIError(ctx, th, "unable to run audit report", err)
 		return nil, empty, err
 	}
 

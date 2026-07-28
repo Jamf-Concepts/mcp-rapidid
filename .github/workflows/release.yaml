@@ -34,7 +34,7 @@ jobs:
         run: mcpb validate ${{ env.MCPB_DIR }}/manifest.json
 
       - name: Build MacOS Apple Silicon binary
-        run: GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w -X main.version=${{ github.ref_name }} -X main.commit=${{ github.sha }} -X main.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" -o ${{ env.MCPB_DIR }}/server/mcp-rapidid ./cmd/mcp-rapidid
+        run: GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w -X main.version=${{ github.ref_name }} -X main.commit=${{ github.sha }} -X main.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.telemetryAppID=${{ secrets.TELEMETRY_APP_ID }} -X main.telemetryNamespace=${{ secrets.TELEMETRY_NAMESPACE }}" -o ${{ env.MCPB_DIR }}/server/mcp-rapidid ./cmd/mcp-rapidid
 
       - name: Copy MacOS Apple Silicon raw binary
         run: cp ${{ env.MCPB_DIR }}/server/mcp-rapidid mcprapidid-${{ github.ref_name }}-macos-apple-silicon
@@ -43,7 +43,7 @@ jobs:
         run: mcpb pack ${{ env.MCPB_DIR }} mcprapidid-${{ github.ref_name }}-macos-apple-silicon.mcpb
 
       - name: Build MacOS Intel binary
-        run: GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w -X main.version=${{ github.ref_name }} -X main.commit=${{ github.sha }} -X main.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" -o ${{ env.MCPB_DIR }}/server/mcp-rapidid ./cmd/mcp-rapidid
+        run: GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w -X main.version=${{ github.ref_name }} -X main.commit=${{ github.sha }} -X main.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.telemetryAppID=${{ secrets.TELEMETRY_APP_ID }} -X main.telemetryNamespace=${{ secrets.TELEMETRY_NAMESPACE }}" -o ${{ env.MCPB_DIR }}/server/mcp-rapidid ./cmd/mcp-rapidid
 
       - name: Copy MacOS Intel raw binary
         run: cp ${{ env.MCPB_DIR }}/server/mcp-rapidid mcprapidid-${{ github.ref_name }}-macos-intel
@@ -52,7 +52,7 @@ jobs:
         run: mcpb pack ${{ env.MCPB_DIR }} mcprapidid-${{ github.ref_name }}-macos-intel.mcpb
 
       - name: Build Windows binary
-        run: GOOS=windows GOARCH=amd64 go build -ldflags="-s -w -X main.version=${{ github.ref_name }} -X main.commit=${{ github.sha }} -X main.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" -o ${{ env.MCPB_DIR }}/server/mcp-rapidid ./cmd/mcp-rapidid
+        run: GOOS=windows GOARCH=amd64 go build -ldflags="-s -w -X main.version=${{ github.ref_name }} -X main.commit=${{ github.sha }} -X main.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.telemetryAppID=${{ secrets.TELEMETRY_APP_ID }} -X main.telemetryNamespace=${{ secrets.TELEMETRY_NAMESPACE }}" -o ${{ env.MCPB_DIR }}/server/mcp-rapidid ./cmd/mcp-rapidid
 
       - name: Copy Windows raw binary
         run: cp ${{ env.MCPB_DIR }}/server/mcp-rapidid mcprapidid-${{ github.ref_name }}-windows-amd64.exe
@@ -61,7 +61,7 @@ jobs:
         run: mcpb pack ${{ env.MCPB_DIR }} mcprapidid-${{ github.ref_name }}-windows-amd64.mcpb
 
       - name: Build Linux binary
-        run: GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X main.version=${{ github.ref_name }} -X main.commit=${{ github.sha }} -X main.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" -o ${{ env.MCPB_DIR }}/server/mcp-rapidid ./cmd/mcp-rapidid
+        run: GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X main.version=${{ github.ref_name }} -X main.commit=${{ github.sha }} -X main.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.telemetryAppID=${{ secrets.TELEMETRY_APP_ID }} -X main.telemetryNamespace=${{ secrets.TELEMETRY_NAMESPACE }}" -o ${{ env.MCPB_DIR }}/server/mcp-rapidid ./cmd/mcp-rapidid
 
       - name: Copy Linux raw binary
         run: cp ${{ env.MCPB_DIR }}/server/mcp-rapidid mcprapidid-${{ github.ref_name }}-linux-amd64

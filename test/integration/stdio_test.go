@@ -142,10 +142,11 @@ func setupMCPSession(t *testing.T, envOverrides map[string]string) (io.WriteClos
 	}
 
 	env := map[string]string{
-		"RI_HOST":      os.Getenv("RI_HOST"),
-		"RI_USER":      os.Getenv("RI_USER"),
-		"RI_PASSWORD":  os.Getenv("RI_PASSWORD"),
-		"RI_LOG_LEVEL": os.Getenv("RI_LOG_LEVEL"),
+		"RI_HOST":               os.Getenv("RI_HOST"),
+		"RI_USER":               os.Getenv("RI_USER"),
+		"RI_PASSWORD":           os.Getenv("RI_PASSWORD"),
+		"RI_LOG_LEVEL":          os.Getenv("RI_LOG_LEVEL"),
+		"MCP_RAPIDID_TELEMETRY": os.Getenv("MCP_RAPIDID_TELEMETRY"),
 	}
 	for k, v := range envOverrides {
 		env[k] = v
@@ -262,6 +263,7 @@ func TestToolCallsUserPassword(t *testing.T) {
 		{"get-connect-projects", "get-connect-projects", json.RawMessage(`{}`), false},
 		{"search-users", "search-users", json.RawMessage(`{"criteria":"ramon"}`), false},
 		{"get-my-delegations", "get-my-delegations", json.RawMessage(`{}`), false},
+		{"get-connect-action", "get-connect-action", json.RawMessage(`{"id":"doesnotexist", "metaDataOnly":true}`), true},
 	})
 }
 

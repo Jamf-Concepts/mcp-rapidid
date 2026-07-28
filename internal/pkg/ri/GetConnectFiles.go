@@ -4,7 +4,9 @@ package ri
 
 import (
 	"context"
+	"time"
 
+	"github.com/Jamf-Concepts/mcp-rapidid/internal/pkg/telemetry"
 	"github.com/hatch-ed-com/ri-sdk-go/pkg/rapididentity"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -12,16 +14,19 @@ import (
 const getConnectFilesToolName = "get-connect-files"
 
 func GetConnectFiles(ctx context.Context, req *mcp.CallToolRequest, input rapididentity.GetConnectFilesInput) (*mcp.CallToolResult, rapididentity.GetConnectFilesOutput, error) {
-	client, th, err := ToolSetup(req, getConnectFilesToolName)
-	if err != nil {
-		return nil, rapididentity.GetConnectFilesOutput{}, err
+	var err error
+	ctx, client, th, setupErr := ToolSetup(ctx, req, getConnectFilesToolName)
+	if setupErr != nil {
+		return nil, rapididentity.GetConnectFilesOutput{}, setupErr
 	}
+	start := time.Now()
+	defer telemetry.RecordCompletion(ctx, getConnectFilesToolName, start, &err)
 
 	th.Logger().Info(getConnectFilesToolName + " tool called")
 
 	defer func(c *rapididentity.Client) {
 		if err := c.Close(); err != nil {
-			LogRIError(th, "unable to close rapididentity client", err)
+			LogRIError(ctx, th, "unable to close rapididentity client", err)
 		}
 	}(client)
 
@@ -29,7 +34,7 @@ func GetConnectFiles(ctx context.Context, req *mcp.CallToolRequest, input rapidi
 	th.Notify().Info("Retrieving Connect files")
 	result, err := client.GetConnectFiles(ctx, input)
 	if err != nil {
-		LogRIError(th, "unable to retrieve Connect files", err)
+		LogRIError(ctx, th, "unable to retrieve Connect files", err)
 		return nil, rapididentity.GetConnectFilesOutput{}, err
 	}
 

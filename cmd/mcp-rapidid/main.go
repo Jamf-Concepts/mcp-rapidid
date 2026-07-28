@@ -9,15 +9,20 @@ import (
 	"log"
 	"log/slog"
 	"os"
+	"runtime"
 
 	"github.com/Jamf-Concepts/mcp-rapidid/internal/pkg/ri"
+	"github.com/Jamf-Concepts/mcp-rapidid/internal/pkg/rimcpctx"
+	"github.com/Jamf-Concepts/mcp-rapidid/internal/pkg/telemetry"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 var (
-	version   = "dev"
-	commit    = "none"
-	buildDate = "unknown"
+	version            = "dev"
+	commit             = "none"
+	buildDate          = "unknown"
+	telemetryAppID     = ""
+	telemetryNamespace = ""
 )
 
 func main() {
@@ -36,9 +41,41 @@ func main() {
 		level = slog.LevelError
 	}
 
+	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
+
+	rctx := rimcpctx.Context{
+		Version:     version,
+		BuildNumber: commit,
+		OS:          runtime.GOOS,
+		Arch:        runtime.GOARCH,
+	}
+
+	if os.Getenv("MCP_RAPIDID_TELEMETRY") == "true" {
+		rctx.TelemetryAppID = telemetryAppID
+		rctx.TelemetryNamespace = telemetryNamespace
+		licenseeID, licenseeErr := ri.GetLicenseeID(context.Background())
+		if licenseeErr != nil {
+			logger.Debug("unable to retrieve licensee ID for telemetry; telemetry will be disabled", "error", licenseeErr)
+		} else {
+			rctx.LicenseeID = licenseeID
+		}
+	}
+
+	slog.SetDefault(logger)
+	ctx := rimcpctx.WithContext(context.Background(), rctx)
+
 	server := mcp.NewServer(&mcp.Implementation{Name: "mcp-rapidid", Title: "RapidID MCP Server", Version: version}, &mcp.ServerOptions{
 		Capabilities: &mcp.ServerCapabilities{Logging: &mcp.LoggingCapabilities{}, Tools: &mcp.ToolCapabilities{}},
-		Logger:       slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: level})),
+		Logger:       logger,
+		InitializedHandler: func(hCtx context.Context, req *mcp.InitializedRequest) {
+			clientName, clientVersion := ri.ClientInfoFromSession(req.Session)
+			// StdioTransport does not assign session IDs — req.Session.ID() always returns "".
+			// The SDK's GetSessionID option only applies to HTTP/SSE transports.
+			// Passing "" here is intentional; if the SDK ever starts providing session IDs
+			// for stdio, swapping this to req.Session.ID() will automatically enable grouping.
+			hCtx = telemetry.WithSession(hCtx, req.Session.ID(), clientName, clientVersion)
+			telemetry.RecordInitialized(hCtx)
+		},
 	})
 	mcp.AddTool(server, &mcp.Tool{Name: "search-users", Description: "Used to search basic Rapididentity user information based on a simple criteria"}, ri.SearchRapidIdentityUsers)
 	mcp.AddTool(server, &mcp.Tool{Name: "search-entitlements-for-user", Description: "Used to search entitlements for a RapidIdentity user"}, ri.GetEntitlementForUser)
@@ -58,7 +95,7 @@ func main() {
 	mcp.AddTool(server, &mcp.Tool{Name: "run-connect-action", Description: "Runs a RapidIdentity Connect action set and returns the HTML log", InputSchema: ri.RunConnectActionInputSchema}, ri.RunConnectAction)
 	mcp.AddTool(server, &mcp.Tool{Name: "get-connect-files", Description: "Returns metadata for files and directories within the RapidIdentity Connect files module"}, ri.GetConnectFiles)
 	mcp.AddTool(server, &mcp.Tool{Name: "get-connect-file-content", Description: "Returns the text content of a file from the RapidIdentity Connect files module, such as SharedGlobals.properties or Globals.properties"}, ri.GetConnectFileContent)
-	err = server.Run(context.Background(), &mcp.StdioTransport{})
+	err = server.Run(ctx, &mcp.StdioTransport{})
 	if err != nil {
 		log.Fatal(err)
 	}

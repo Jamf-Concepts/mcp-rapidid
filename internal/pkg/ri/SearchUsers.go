@@ -9,8 +9,10 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/Jamf-Concepts/mcp-rapidid/internal/pkg/helper"
+	"github.com/Jamf-Concepts/mcp-rapidid/internal/pkg/telemetry"
 	"github.com/hatch-ed-com/ri-sdk-go/pkg/rapididentity"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -50,17 +52,19 @@ type reportingUsersResponse struct {
 }
 
 func SearchRapidIdentityUsers(ctx context.Context, req *mcp.CallToolRequest, input UserInput) (*mcp.CallToolResult, UserOutput, error) {
-	client, th, err := ToolSetup(req, searchRapidIdentityUsersToolName)
-	if err != nil {
-		return nil, UserOutput{}, err
+	var err error
+	ctx, client, th, setupErr := ToolSetup(ctx, req, searchRapidIdentityUsersToolName)
+	if setupErr != nil {
+		return nil, UserOutput{}, setupErr
 	}
+	start := time.Now()
+	defer telemetry.RecordCompletion(ctx, searchRapidIdentityUsersToolName, start, &err)
 
 	th.Logger().Info(searchRapidIdentityUsersToolName+" tool called", "criteria", input.Criteria)
 
 	defer func(c *rapididentity.Client) {
-		err = c.Close()
-		if err != nil {
-			LogRIError(th, "unable to close rapididentity client", err)
+		if cerr := c.Close(); cerr != nil {
+			LogRIError(ctx, th, "unable to close rapididentity client", cerr)
 		}
 	}(client)
 
@@ -75,22 +79,22 @@ func SearchRapidIdentityUsers(ctx context.Context, req *mcp.CallToolRequest, inp
 	th.Notify().Info("Retrieving delegations for caller")
 	delegationRes, err := client.DoCustomRequest(ctx, "GET", "profiles/delegations/my", nil)
 	if err != nil {
-		LogRIError(th, "unable to retrieve delegations for user", err)
+		LogRIError(ctx, th, "unable to retrieve delegations for user", err)
 		return nil, UserOutput{}, err
 	}
 
 	th.Logger().Debug("GET profiles/delegations/my response", "response", delegationRes)
 
 	defer func(res *http.Response) {
-		err := res.Body.Close()
-		if err != nil {
-			th.Logger().Warn("issue closing response body for profiles/delegations/my endpoint response", "error", err)
+		if cerr := res.Body.Close(); cerr != nil {
+			th.Logger().Warn("issue closing response body for profiles/delegations/my endpoint response", "error", cerr)
 		}
 	}(delegationRes)
 
 	delegationResBody, err := io.ReadAll(delegationRes.Body)
 	if err != nil {
 		th.Logger().Error("unable to read response body for the profiles/delegations/my response", "error", err, "status", delegationRes.StatusCode)
+		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", searchRapidIdentityUsersToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, UserOutput{}, err
 	}
 
@@ -101,6 +105,7 @@ func SearchRapidIdentityUsers(ctx context.Context, req *mcp.CallToolRequest, inp
 	err = json.Unmarshal(delegationResBody, &delegationOutputs)
 	if err != nil {
 		th.Logger().Error("unable to unmarshal json for GET profiles/delegations/my response body", "error", err)
+		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", searchRapidIdentityUsersToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, UserOutput{}, err
 	}
 
@@ -119,22 +124,22 @@ func SearchRapidIdentityUsers(ctx context.Context, req *mcp.CallToolRequest, inp
 
 	userRes, err := client.DoCustomRequest(ctx, "GET", path, nil)
 	if err != nil {
-		LogRIError(th, "unable to retrieve users based on supplied criteria", err)
+		LogRIError(ctx, th, "unable to retrieve users based on supplied criteria", err)
 		return nil, UserOutput{}, err
 	}
 
 	th.Logger().Debug("GET "+path+" response", "response", userRes)
 
 	defer func(res *http.Response) {
-		err := res.Body.Close()
-		if err != nil {
-			th.Logger().Warn("issue closing response body for "+path+" endpoint response", "error", err)
+		if cerr := res.Body.Close(); cerr != nil {
+			th.Logger().Warn("issue closing response body for "+path+" endpoint response", "error", cerr)
 		}
 	}(userRes)
 
 	userResBody, err := io.ReadAll(userRes.Body)
 	if err != nil {
 		th.Logger().Error("unable to read response body for the "+path+" response", "error", err, "status", userRes.StatusCode)
+		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", searchRapidIdentityUsersToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, UserOutput{}, err
 	}
 
@@ -145,6 +150,7 @@ func SearchRapidIdentityUsers(ctx context.Context, req *mcp.CallToolRequest, inp
 	err = json.Unmarshal(userResBody, &userOutputs)
 	if err != nil {
 		th.Logger().Error("unable to unmarshal json for GET "+path+" response body", "error", err)
+		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", searchRapidIdentityUsersToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, UserOutput{}, err
 	}
 
@@ -166,22 +172,22 @@ func searchUsersViaReporting(ctx context.Context, th *helper.ToolHelper, client 
 
 	userRes, err := client.DoCustomRequest(ctx, "GET", path, nil)
 	if err != nil {
-		LogRIError(th, "unable to retrieve users based on supplied criteria", err)
+		LogRIError(ctx, th, "unable to retrieve users based on supplied criteria", err)
 		return nil, UserOutput{}, err
 	}
 
 	th.Logger().Debug("GET "+path+" response", "response", userRes)
 
 	defer func(res *http.Response) {
-		err := res.Body.Close()
-		if err != nil {
-			th.Logger().Warn("issue closing response body for "+path+" endpoint response", "error", err)
+		if cerr := res.Body.Close(); cerr != nil {
+			th.Logger().Warn("issue closing response body for "+path+" endpoint response", "error", cerr)
 		}
 	}(userRes)
 
 	userResBody, err := io.ReadAll(userRes.Body)
 	if err != nil {
 		th.Logger().Error("unable to read response body for the "+path+" response", "error", err, "status", userRes.StatusCode)
+		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", searchRapidIdentityUsersToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, UserOutput{}, err
 	}
 
@@ -192,6 +198,7 @@ func searchUsersViaReporting(ctx context.Context, th *helper.ToolHelper, client 
 	err = json.Unmarshal(userResBody, &reportingRes)
 	if err != nil {
 		th.Logger().Error("unable to unmarshal json for GET "+path+" response body", "error", err)
+		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", searchRapidIdentityUsersToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, UserOutput{}, err
 	}
 
