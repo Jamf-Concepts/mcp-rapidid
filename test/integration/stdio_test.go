@@ -263,6 +263,7 @@ func TestToolCallsUserPassword(t *testing.T) {
 		{"get-connect-projects", "get-connect-projects", json.RawMessage(`{}`), false},
 		{"search-users", "search-users", json.RawMessage(`{"criteria":"ramon"}`), false},
 		{"get-my-delegations", "get-my-delegations", json.RawMessage(`{}`), false},
+		{"get-connect-action", "get-connect-action", json.RawMessage(`{"id":"doesnotexist", "metaDataOnly":true}`), true},
 	})
 }
 
