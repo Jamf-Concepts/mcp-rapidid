@@ -14,6 +14,9 @@ import (
 	"github.com/Jamf-Concepts/mcp-rapidid/internal/pkg/rimcpctx"
 )
 
+// eventPrefix is the namespace prefix for all RapidIdMcp telemetry keys and event types.
+const eventPrefix = "RapidIdMcp."
+
 // ErrorCategory is the TelemetryDeck error category enum.
 type ErrorCategory string
 
@@ -89,8 +92,8 @@ func basePayload(rctx rimcpctx.Context, clientName, clientVersion string) map[st
 		"TelemetryDeck.SDK.name":               "Jamf-Concepts/mcp-rapidid",
 		"TelemetryDeck.SDK.nameAndVersion":     fmt.Sprintf("Jamf-Concepts/mcp-rapidid-%s", rctx.Version),
 		"TelemetryDeck.SDK.version":            rctx.Version,
-		"RapidIdMcp.Client.name":               clientName,
-		"RapidIdMcp.Client.version":            clientVersion,
+		eventPrefix + "Client.name":               clientName,
+		eventPrefix + "Client.version":            clientVersion,
 	}
 }
 
@@ -147,7 +150,7 @@ func RecordInitialized(ctx context.Context) {
 	if !ok {
 		return
 	}
-	sendAsync(ctx, rctx, sess, "RapidIdMcp.Server.initialized", nil)
+	sendAsync(ctx, rctx, sess, eventPrefix + "Server.initialized", nil)
 }
 
 // RecordCompletion fires RapidIdMcp.Tool.called with duration.
@@ -159,9 +162,9 @@ func RecordCompletion(ctx context.Context, toolName string, start time.Time, _ *
 		return
 	}
 	duration := time.Since(start).Seconds()
-	sendAsync(ctx, rctx, sess, "RapidIdMcp.Tool.called", map[string]any{
+	sendAsync(ctx, rctx, sess, eventPrefix + "Tool.called", map[string]any{
 		"TelemetryDeck.Signal.durationInSeconds": fmt.Sprintf("%.3f", duration),
-		"RapidIdMcp.Tool.name":                   toolName,
+		eventPrefix + "Tool.name":                   toolName,
 	})
 }
 
