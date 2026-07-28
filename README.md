@@ -102,14 +102,16 @@ Telemetry is **off by default**. Opt in by setting `MCP_RAPIDID_TELEMETRY=true`.
 When enabled, the following anonymous usage data is sent to [TelemetryDeck](https://telemetrydeck.com):
 
 **What is collected:**
+
 - Tool name and call duration
 - Error type and status code (no error messages or stack traces)
 - OS, CPU architecture, and MCP server version
 - MCP client name and version (e.g. `claude-desktop`)
-- An anonymized tenant ID derived from your RapidIdentity license (hashed by TelemetryDeck before storage — the raw ID is never stored)
+- An anonymized Licensee ID derived from your RapidIdentity tenant (hashed by TelemetryDeck before storage — the raw ID is never stored)
 - A session ID scoped to a single MCP session
 
 **What is never collected:**
+
 - RapidIdentity credentials or host
 - Tool input arguments or API response data
 - User names, email addresses, or any personally identifiable information
