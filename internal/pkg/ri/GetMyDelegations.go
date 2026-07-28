@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
+	"github.com/Jamf-Concepts/mcp-rapidid/internal/pkg/telemetry"
 	"github.com/hatch-ed-com/ri-sdk-go/pkg/rapididentity"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -22,16 +24,19 @@ type GetMyDelegationsOutput struct {
 }
 
 func GetMyDelegations(ctx context.Context, req *mcp.CallToolRequest, input GetMyDelegationsInput) (*mcp.CallToolResult, GetMyDelegationsOutput, error) {
-	client, th, err := ToolSetup(req, getMyDelegationsToolName)
-	if err != nil {
-		return nil, GetMyDelegationsOutput{}, err
+	var err error
+	ctx, client, th, setupErr := ToolSetup(ctx, req, getMyDelegationsToolName)
+	if setupErr != nil {
+		return nil, GetMyDelegationsOutput{}, setupErr
 	}
+	start := time.Now()
+	defer telemetry.RecordCompletion(ctx, getMyDelegationsToolName, start, &err)
 
 	th.Logger().Info(getMyDelegationsToolName + " tool called")
 
 	defer func(c *rapididentity.Client) {
 		if err := c.Close(); err != nil {
-			LogRIError(th, "unable to close rapididentity client", err)
+			LogRIError(ctx, th, "unable to close rapididentity client", err)
 		}
 	}(client)
 
@@ -39,7 +44,7 @@ func GetMyDelegations(ctx context.Context, req *mcp.CallToolRequest, input GetMy
 	th.Notify().Info("Retrieving delegations")
 	delegationRes, err := client.DoCustomRequest(ctx, "GET", "profiles/delegations/my", nil)
 	if err != nil {
-		LogRIError(th, "unable to retrieve delegations", err)
+		LogRIError(ctx, th, "unable to retrieve delegations", err)
 		return nil, GetMyDelegationsOutput{}, err
 	}
 
@@ -54,6 +59,7 @@ func GetMyDelegations(ctx context.Context, req *mcp.CallToolRequest, input GetMy
 	delegationResBody, err := io.ReadAll(delegationRes.Body)
 	if err != nil {
 		th.Logger().Error("unable to read response body for the profiles/delegations/my response", "error", err, "status", delegationRes.StatusCode)
+		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", getMyDelegationsToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, GetMyDelegationsOutput{}, err
 	}
 
@@ -64,6 +70,7 @@ func GetMyDelegations(ctx context.Context, req *mcp.CallToolRequest, input GetMy
 	err = json.Unmarshal(delegationResBody, &delegations)
 	if err != nil {
 		th.Logger().Error("unable to unmarshal json for GET profiles/delegations/my response body", "error", err)
+		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", getMyDelegationsToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, GetMyDelegationsOutput{}, err
 	}
 

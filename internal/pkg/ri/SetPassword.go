@@ -4,7 +4,9 @@ package ri
 
 import (
 	"context"
+	"time"
 
+	"github.com/Jamf-Concepts/mcp-rapidid/internal/pkg/telemetry"
 	"github.com/hatch-ed-com/ri-sdk-go/pkg/rapididentity"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -16,16 +18,19 @@ type SetPasswordOutput struct {
 }
 
 func SetPassword(ctx context.Context, req *mcp.CallToolRequest, input rapididentity.SetPasswordInput) (*mcp.CallToolResult, SetPasswordOutput, error) {
-	client, th, err := ToolSetup(req, setPasswordToolName)
-	if err != nil {
-		return nil, SetPasswordOutput{}, err
+	var err error
+	ctx, client, th, setupErr := ToolSetup(ctx, req, setPasswordToolName)
+	if setupErr != nil {
+		return nil, SetPasswordOutput{}, setupErr
 	}
+	start := time.Now()
+	defer telemetry.RecordCompletion(ctx, setPasswordToolName, start, &err)
 
 	th.Logger().Info(setPasswordToolName+" tool called", "delegationId", input.DelegationId)
 
 	defer func(c *rapididentity.Client) {
 		if err := c.Close(); err != nil {
-			LogRIError(th, "unable to close rapididentity client", err)
+			LogRIError(ctx, th, "unable to close rapididentity client", err)
 		}
 	}(client)
 
@@ -33,7 +38,7 @@ func SetPassword(ctx context.Context, req *mcp.CallToolRequest, input rapidident
 	th.Notify().Info("Setting password")
 	result, err := client.SetPassword(ctx, input)
 	if err != nil {
-		LogRIError(th, "unable to set password", err)
+		LogRIError(ctx, th, "unable to set password", err)
 		return nil, SetPasswordOutput{}, err
 	}
 

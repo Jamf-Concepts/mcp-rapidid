@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
+	"github.com/Jamf-Concepts/mcp-rapidid/internal/pkg/telemetry"
 	"github.com/hatch-ed-com/ri-sdk-go/pkg/rapididentity"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -43,16 +45,19 @@ type StartTaskRequestItem struct {
 }
 
 func StartEntitlementRequest(ctx context.Context, req *mcp.CallToolRequest, input StartEntitlementRequestInput) (*mcp.CallToolResult, StartEntitlementRequestOutput, error) {
-	client, th, err := ToolSetup(req, startEntitlementRequestToolName)
-	if err != nil {
-		return nil, StartEntitlementRequestOutput{}, err
+	var err error
+	ctx, client, th, setupErr := ToolSetup(ctx, req, startEntitlementRequestToolName)
+	if setupErr != nil {
+		return nil, StartEntitlementRequestOutput{}, setupErr
 	}
+	start := time.Now()
+	defer telemetry.RecordCompletion(ctx, startEntitlementRequestToolName, start, &err)
 
 	th.Logger().Info(startEntitlementRequestToolName+" tool called", "requestCount", len(input.RequestInfo))
 
 	defer func(c *rapididentity.Client) {
 		if err := c.Close(); err != nil {
-			LogRIError(th, "unable to close rapididentity client", err)
+			LogRIError(ctx, th, "unable to close rapididentity client", err)
 		}
 	}(client)
 
@@ -72,6 +77,7 @@ func StartEntitlementRequest(ctx context.Context, req *mcp.CallToolRequest, inpu
 	requestPayload, err := json.Marshal(payload)
 	if err != nil {
 		th.Logger().Error("unable to marshal entitlement request payload", "error", err)
+		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", startEntitlementRequestToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, StartEntitlementRequestOutput{}, err
 	}
 
@@ -81,7 +87,7 @@ func StartEntitlementRequest(ctx context.Context, req *mcp.CallToolRequest, inpu
 	th.Notify().Info(fmt.Sprintf("Starting %d entitlement request(s)", len(payload.RequestItems)))
 	startTaskRes, err := client.DoCustomRequest(ctx, "POST", "workflow/tasks/startTask", body)
 	if err != nil {
-		LogRIError(th, "unable to start entitlement task", err)
+		LogRIError(ctx, th, "unable to start entitlement task", err)
 		return nil, StartEntitlementRequestOutput{}, err
 	}
 
@@ -96,6 +102,7 @@ func StartEntitlementRequest(ctx context.Context, req *mcp.CallToolRequest, inpu
 	startTaskBody, err := io.ReadAll(startTaskRes.Body)
 	if err != nil {
 		th.Logger().Error("unable to read response body for workflow/tasks/startTask response", "error", err, "status", startTaskRes.StatusCode)
+		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", startEntitlementRequestToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, StartEntitlementRequestOutput{}, err
 	}
 
@@ -106,6 +113,7 @@ func StartEntitlementRequest(ctx context.Context, req *mcp.CallToolRequest, inpu
 	err = json.Unmarshal(startTaskBody, &requestIds)
 	if err != nil {
 		th.Logger().Error("unable to unmarshal json for POST workflow/tasks/startTask response body", "error", err)
+		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", startEntitlementRequestToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, StartEntitlementRequestOutput{}, err
 	}
 

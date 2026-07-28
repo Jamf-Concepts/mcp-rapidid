@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
+	"github.com/Jamf-Concepts/mcp-rapidid/internal/pkg/telemetry"
 	"github.com/hatch-ed-com/ri-sdk-go/pkg/rapididentity"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -42,16 +44,19 @@ type ResourceAssociation struct {
 }
 
 func GetEntitlementForUser(ctx context.Context, req *mcp.CallToolRequest, input EntitlementForUserInput) (*mcp.CallToolResult, EntitlementForUserOutput, error) {
-	client, th, err := ToolSetup(req, searchEntitlementsForUserToolName)
-	if err != nil {
-		return nil, EntitlementForUserOutput{}, err
+	var err error
+	ctx, client, th, setupErr := ToolSetup(ctx, req, searchEntitlementsForUserToolName)
+	if setupErr != nil {
+		return nil, EntitlementForUserOutput{}, setupErr
 	}
+	start := time.Now()
+	defer telemetry.RecordCompletion(ctx, searchEntitlementsForUserToolName, start, &err)
 
 	th.Logger().Info(searchEntitlementsForUserToolName+" tool called", "userId", input.Id)
 
 	defer func(c *rapididentity.Client) {
 		if err := c.Close(); err != nil {
-			LogRIError(th, "unable to close rapididentity client", err)
+			LogRIError(ctx, th, "unable to close rapididentity client", err)
 		}
 	}(client)
 
@@ -60,7 +65,7 @@ func GetEntitlementForUser(ctx context.Context, req *mcp.CallToolRequest, input 
 	th.Notify().Info("Retrieving entitlements for user")
 	entitlementAssociationsRes, err := client.DoCustomRequest(ctx, "GET", path, nil)
 	if err != nil {
-		LogRIError(th, "unable to retrieve entitlement associations", err)
+		LogRIError(ctx, th, "unable to retrieve entitlement associations", err)
 		return nil, EntitlementForUserOutput{}, err
 	}
 
@@ -75,6 +80,7 @@ func GetEntitlementForUser(ctx context.Context, req *mcp.CallToolRequest, input 
 	entitlementAssociationsBody, err := io.ReadAll(entitlementAssociationsRes.Body)
 	if err != nil {
 		th.Logger().Error("unable to read response body for "+path+" response", "error", err, "status", entitlementAssociationsRes.StatusCode)
+		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", searchEntitlementsForUserToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, EntitlementForUserOutput{}, err
 	}
 
@@ -85,6 +91,7 @@ func GetEntitlementForUser(ctx context.Context, req *mcp.CallToolRequest, input 
 	err = json.Unmarshal(entitlementAssociationsBody, &output)
 	if err != nil {
 		th.Logger().Error("unable to unmarshal json for GET "+path+" response body", "error", err)
+		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", searchEntitlementsForUserToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, EntitlementForUserOutput{}, err
 	}
 

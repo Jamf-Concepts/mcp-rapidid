@@ -4,7 +4,9 @@ package ri
 
 import (
 	"context"
+	"time"
 
+	"github.com/Jamf-Concepts/mcp-rapidid/internal/pkg/telemetry"
 	"github.com/hatch-ed-com/ri-sdk-go/pkg/rapididentity"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -12,16 +14,19 @@ import (
 const getPasswordPoliciesForToolName = "get-password-policies-for"
 
 func GetPasswordPoliciesFor(ctx context.Context, req *mcp.CallToolRequest, input rapididentity.GetPasswordPoliciesForInput) (*mcp.CallToolResult, rapididentity.PasswordPolicy, error) {
-	client, th, err := ToolSetup(req, getPasswordPoliciesForToolName)
-	if err != nil {
-		return nil, rapididentity.PasswordPolicy{}, err
+	var err error
+	ctx, client, th, setupErr := ToolSetup(ctx, req, getPasswordPoliciesForToolName)
+	if setupErr != nil {
+		return nil, rapididentity.PasswordPolicy{}, setupErr
 	}
+	start := time.Now()
+	defer telemetry.RecordCompletion(ctx, getPasswordPoliciesForToolName, start, &err)
 
 	th.Logger().Info(getPasswordPoliciesForToolName+" tool called", "userCount", len(input.UserIds))
 
 	defer func(c *rapididentity.Client) {
 		if err := c.Close(); err != nil {
-			LogRIError(th, "unable to close rapididentity client", err)
+			LogRIError(ctx, th, "unable to close rapididentity client", err)
 		}
 	}(client)
 
@@ -29,7 +34,7 @@ func GetPasswordPoliciesFor(ctx context.Context, req *mcp.CallToolRequest, input
 	th.Notify().Info("Retrieving password policies")
 	result, err := client.GetPasswordPoliciesFor(ctx, input)
 	if err != nil {
-		LogRIError(th, "unable to retrieve password policies", err)
+		LogRIError(ctx, th, "unable to retrieve password policies", err)
 		return nil, rapididentity.PasswordPolicy{}, err
 	}
 

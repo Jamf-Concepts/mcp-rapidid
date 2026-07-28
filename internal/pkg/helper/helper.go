@@ -35,10 +35,14 @@ type ToolHelper struct {
 	// Determines if the client supports
 	// progress notifications
 	token any
+
+	// The name of the tool this helper was created for.
+	// Used to build structured telemetry error IDs.
+	toolName string
 }
 
 // Instantiates a ToolHelper
-func NewToolHelper(req *mcp.CallToolRequest, loggerName string) *ToolHelper {
+func NewToolHelper(req *mcp.CallToolRequest, toolName string) *ToolHelper {
 	levelVar := new(slog.LevelVar)
 	configuredLevel := os.Getenv("RI_LOG_LEVEL")
 	err := levelVar.UnmarshalText([]byte(configuredLevel))
@@ -50,10 +54,11 @@ func NewToolHelper(req *mcp.CallToolRequest, loggerName string) *ToolHelper {
 		logger:   slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: levelVar.Level()})),
 		logLevel: levelVar,
 		notify: slog.New(mcp.NewLoggingHandler(req.Session, &mcp.LoggingHandlerOptions{
-			LoggerName: loggerName,
+			LoggerName: toolName,
 		})),
-		session: req.Session,
-		token:   req.Params.GetProgressToken(),
+		session:  req.Session,
+		token:    req.Params.GetProgressToken(),
+		toolName: toolName,
 	}
 }
 
@@ -85,4 +90,9 @@ func (th *ToolHelper) ProgressStep(ctx context.Context, progress float64, total 
 // Retrieve the log level of logger
 func (th *ToolHelper) LogLevel() slog.Level {
 	return th.logLevel.Level()
+}
+
+// ToolName returns the name of the tool this helper was created for.
+func (th *ToolHelper) ToolName() string {
+	return th.toolName
 }
