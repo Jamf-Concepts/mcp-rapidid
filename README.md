@@ -10,22 +10,25 @@ with Connect action sets.
 
 ## Getting Started
 
-### Using Claude Extensions
+### Using Claude Desktop Extensions
 
-1. Download mcpb package for your OS
+1. Download mcpb package (file extension is `.mcpb`) for your OS from the assets in [releases](https://github.com/Jamf-Concepts/mcp-rapidid/releases)
 2. Open Claude Desktop and go to Settings ➡️ Extensions ➡️ Advanced Settings ➡️ Install Extension
 3. Choose mcpb package from step 1
 4. Enter Hostname and Username/Password OR Service Identity
 
+https://github.com/user-attachments/assets/9bd91cea-b367-498e-8279-d0ad5eb32a66
+
 ### Using Binary
 
-Download the binary for your OS from releases and
-follow the Usage with Model Context Protocol instructions.
+Download the binary for your OS from the assets in [releases](https://github.com/Jamf-Concepts/mcp-rapidid/releases)
+and follow the Usage with Model Context Protocol instructions.
 
 ## Usage with Model Context Protocol
 
 To integrate this server with apps that support MCP using your
-RapidID username and password
+RapidID username and password. Set `MCP_RAPIDID_TELEMETRY` to
+false or remove it completely to opt out of providing usage data.
 
 ```json
 {
@@ -33,9 +36,11 @@ RapidID username and password
     "mcp-rapidid": {
       "command": "<path to downloaded binary>",
       "env": {
+        "MCP_RAPIDID_TELEMETRY": "true",
         "RI_USER": "kclarkson",
         "RI_PASSWORD": "notarealpassword123",
-        "RI_HOST": "portal.us006-rapididentity.com"
+        "RI_HOST": "portal.us006-rapididentity.com",
+        "RI_LOG_LEVEL": "error"
       }
     }
   }
@@ -43,8 +48,10 @@ RapidID username and password
 ```
 
 To integrate this server with apps that support MCP using RapidID
-service identities. Keep in mind that Service Identities do not have
-access to all API endpoints even with the Tenant Admin role.
+service identities. Set `MCP_RAPIDID_TELEMETRY` to false or remove
+it completely to opt out of providing usage data. Keep in mind that
+Service Identities do not have access to all tools even with
+the Tenant Admin role. See tools section for available tools.
 
 ```json
 {
@@ -52,8 +59,10 @@ access to all API endpoints even with the Tenant Admin role.
     "mcp-rapidid": {
       "command": "<path to downloaded binary>",
       "env": {
+        "MCP_RAPIDID_TELEMETRY": "true"
         "RI_SERVICE_IDENTITY_SECRET_KEY": "1jdie203i4jjf9",
-        "RI_HOST": "portal.us006-rapididentity.com"
+        "RI_HOST": "portal.us006-rapididentity.com",
+        "RI_LOG_LEVEL": "error"
       }
     }
   }
@@ -77,7 +86,7 @@ The "Service ID Compatible" column indicates whether a RapidID Service Identity 
 | `get-connect-projects` | Returns all RapidID Connect projects | Yes |
 | `get-connect-actions` | Returns Connect action sets within a project, or across all projects | Yes |
 | `get-connect-action` | Returns a single RapidID Connect action set by ID | Yes |
-| `save-connect-action` | Saves (creates or updates) a RapidID Connect action set | No |
+| `save-connect-action` | Saves (creates or updates) a RapidID Connect action set | Yes |
 | `delete-connect-action` | Deletes a RapidID Connect action set by ID | Yes |
 | `get-password-policies-for` | Retrieves the password policy for specified users | Yes |
 | `set-password` | Sets the RapidID password for one or more users via delegations | Yes |
@@ -110,7 +119,7 @@ When enabled, the following anonymous usage data is sent to [TelemetryDeck](http
 - Tool name and call duration
 - Error type and status code (no error messages or stack traces)
 - OS, CPU architecture, and MCP server version
-- MCP client name and version (e.g. `claude-desktop`)
+- MCP client name and version (e.g. `claude-ai`)
 - An anonymized Licensee ID derived from your RapidIdentity tenant (hashed by TelemetryDeck before storage — the raw ID is never stored)
 - A session ID scoped to a single MCP session
 
@@ -128,10 +137,12 @@ To opt in via the MCP config:
     "mcp-rapidid": {
       "command": "<path to downloaded binary>",
       "env": {
+        "MCP_RAPIDID_TELEMETRY": "true",
         "RI_HOST": "portal.us006-rapididentity.com",
         "RI_USER": "kclarkson",
         "RI_PASSWORD": "notarealpassword123",
-        "MCP_RAPIDID_TELEMETRY": "true"
+        "RI_LOG_LEVEL": "error"
+
       }
     }
   }
