@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "mcp-rapidid",
   "display_name": "RapidIdentity MCP Server",
-  "version": "v0.7.1",
+  "version": "v0.8.0",
   "description": "MCP server for RapidIdentity — search users, manage entitlements, query groups, read audit logs, and more via the RapidIdentity API.",
   "author": {
     "name": "Ramon Ramon",
@@ -106,6 +106,14 @@
     }
   ],
   "user_config": {
+    "mcp_rapidid_telemetry": {
+      "type": "boolean",
+      "title": "Usage Telemetry",
+      "description": "Opt in to anonymous usage telemetry. Off by default. See https://concepts.jamf.com/en/concepts/mcp-rapidid for details on what is collected.",
+      "sensitive": false,
+      "required": false,
+      "default": false
+    },
     "ri_host": {
       "type": "string",
       "title": "RapidIdentity Host",
@@ -142,14 +150,6 @@
       "sensitive": false,
       "required": false,
       "default": "error"
-    },
-    "mcp_rapidid_telemetry": {
-      "type": "boolean",
-      "title": "Usage Telemetry",
-      "description": "Opt in to anonymous usage telemetry. Off by default. See README for details on what is collected.",
-      "sensitive": false,
-      "required": false,
-      "default": false
     }
   },
   "compatibility": {
