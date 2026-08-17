@@ -91,6 +91,12 @@ func SearchRapidIdentityUsers(ctx context.Context, req *mcp.CallToolRequest, inp
 		}
 	}(delegationRes)
 
+	if err = CheckResponseStatus(delegationRes); err != nil {
+		th.Logger().Error("unexpected status for GET profiles/delegations/my response", "status", delegationRes.StatusCode)
+		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", searchRapidIdentityUsersToolName), "see server logs", telemetry.ErrorCategoryThrownException)
+		return nil, UserOutput{}, err
+	}
+
 	delegationResBody, err := io.ReadAll(delegationRes.Body)
 	if err != nil {
 		th.Logger().Error("unable to read response body for the profiles/delegations/my response", "error", err, "status", delegationRes.StatusCode)
@@ -135,6 +141,12 @@ func SearchRapidIdentityUsers(ctx context.Context, req *mcp.CallToolRequest, inp
 			th.Logger().Warn("issue closing response body for "+path+" endpoint response", "error", cerr)
 		}
 	}(userRes)
+
+	if err = CheckResponseStatus(userRes); err != nil {
+		th.Logger().Error("unexpected status for GET "+path+" response", "status", userRes.StatusCode)
+		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", searchRapidIdentityUsersToolName), "see server logs", telemetry.ErrorCategoryThrownException)
+		return nil, UserOutput{}, err
+	}
 
 	userResBody, err := io.ReadAll(userRes.Body)
 	if err != nil {
@@ -183,6 +195,12 @@ func searchUsersViaReporting(ctx context.Context, th *helper.ToolHelper, client 
 			th.Logger().Warn("issue closing response body for "+path+" endpoint response", "error", cerr)
 		}
 	}(userRes)
+
+	if err = CheckResponseStatus(userRes); err != nil {
+		th.Logger().Error("unexpected status for GET "+path+" response", "status", userRes.StatusCode)
+		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", searchRapidIdentityUsersToolName), "see server logs", telemetry.ErrorCategoryThrownException)
+		return nil, UserOutput{}, err
+	}
 
 	userResBody, err := io.ReadAll(userRes.Body)
 	if err != nil {

@@ -92,8 +92,8 @@ func basePayload(rctx rimcpctx.Context, clientName, clientVersion string) map[st
 		"TelemetryDeck.SDK.name":               "Jamf-Concepts/mcp-rapidid",
 		"TelemetryDeck.SDK.nameAndVersion":     fmt.Sprintf("Jamf-Concepts/mcp-rapidid-%s", rctx.Version),
 		"TelemetryDeck.SDK.version":            rctx.Version,
-		EventPrefix + "Client.name":               clientName,
-		EventPrefix + "Client.version":            clientVersion,
+		EventPrefix + "Client.name":            clientName,
+		EventPrefix + "Client.version":         clientVersion,
 	}
 }
 
@@ -150,7 +150,7 @@ func RecordInitialized(ctx context.Context) {
 	if !ok {
 		return
 	}
-	sendAsync(ctx, rctx, sess, EventPrefix + "Server.initialized", nil)
+	sendAsync(ctx, rctx, sess, EventPrefix+"Server.initialized", nil)
 }
 
 // RecordCompletion fires RapidIdMcp.Tool.called with duration.
@@ -162,9 +162,9 @@ func RecordCompletion(ctx context.Context, toolName string, start time.Time, _ *
 		return
 	}
 	duration := time.Since(start).Seconds()
-	sendAsync(ctx, rctx, sess, EventPrefix + "Tool.called", map[string]any{
+	sendAsync(ctx, rctx, sess, EventPrefix+"Tool.called", map[string]any{
 		"TelemetryDeck.Signal.durationInSeconds": fmt.Sprintf("%.3f", duration),
-		EventPrefix + "Tool.name":                   toolName,
+		EventPrefix + "Tool.name":                toolName,
 	})
 }
 

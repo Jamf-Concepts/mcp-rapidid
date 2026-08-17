@@ -77,6 +77,12 @@ func SearchGroups(ctx context.Context, req *mcp.CallToolRequest, input SearchGro
 		}
 	}(groupsRes)
 
+	if err = CheckResponseStatus(groupsRes); err != nil {
+		th.Logger().Error("unexpected status for POST "+path+" response", "status", groupsRes.StatusCode)
+		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", searchGroupsToolName), "see server logs", telemetry.ErrorCategoryThrownException)
+		return nil, SearchGroupsOutput{}, err
+	}
+
 	resBody, err := io.ReadAll(groupsRes.Body)
 	if err != nil {
 		th.Logger().Error("unable to read response body for "+path+" response", "error", err, "status", groupsRes.StatusCode)

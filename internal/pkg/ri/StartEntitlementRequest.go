@@ -99,6 +99,12 @@ func StartEntitlementRequest(ctx context.Context, req *mcp.CallToolRequest, inpu
 		}
 	}(startTaskRes)
 
+	if err = CheckResponseStatus(startTaskRes); err != nil {
+		th.Logger().Error("unexpected status for POST workflow/tasks/startTask response", "status", startTaskRes.StatusCode)
+		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", startEntitlementRequestToolName), "see server logs", telemetry.ErrorCategoryThrownException)
+		return nil, StartEntitlementRequestOutput{}, err
+	}
+
 	startTaskBody, err := io.ReadAll(startTaskRes.Body)
 	if err != nil {
 		th.Logger().Error("unable to read response body for workflow/tasks/startTask response", "error", err, "status", startTaskRes.StatusCode)

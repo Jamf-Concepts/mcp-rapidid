@@ -129,6 +129,17 @@ func ToolSetup(ctx context.Context, req *mcp.CallToolRequest, toolName string) (
 	return ctx, client, th, nil
 }
 
+// CheckResponseStatus returns an error for non-2xx HTTP responses, including the
+// response body in the error message. It reads and drains the body; the caller's
+// deferred Body.Close() will still succeed on an already-drained body.
+func CheckResponseStatus(res *http.Response) error {
+	if res.StatusCode >= 200 && res.StatusCode < 300 {
+		return nil
+	}
+	body, _ := io.ReadAll(res.Body)
+	return fmt.Errorf("unexpected status %d: %s", res.StatusCode, strings.TrimSpace(string(body)))
+}
+
 func LogRIError(ctx context.Context, th *helper.ToolHelper, message string, err error) {
 	riError, ok := err.(rapididentity.RapidIdentityError)
 	if ok {

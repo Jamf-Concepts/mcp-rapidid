@@ -77,6 +77,12 @@ func GetUserInfoInDelegation(ctx context.Context, req *mcp.CallToolRequest, inpu
 		}
 	}(profilesRes)
 
+	if err = CheckResponseStatus(profilesRes); err != nil {
+		th.Logger().Error("unexpected status for POST "+path+" response", "status", profilesRes.StatusCode)
+		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", getUserInfoInDelegationToolName), "see server logs", telemetry.ErrorCategoryThrownException)
+		return nil, UserInfoInDelegationOutput{}, err
+	}
+
 	profilesBody, err := io.ReadAll(profilesRes.Body)
 	if err != nil {
 		th.Logger().Error("unable to read response body for "+path+" response", "error", err, "status", profilesRes.StatusCode)
