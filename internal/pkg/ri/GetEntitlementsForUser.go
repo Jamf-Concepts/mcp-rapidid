@@ -77,6 +77,11 @@ func GetEntitlementForUser(ctx context.Context, req *mcp.CallToolRequest, input 
 		}
 	}(entitlementAssociationsRes)
 
+	if err := checkResponseStatus(entitlementAssociationsRes); err != nil {
+		LogRIError(ctx, th, "unable to retrieve entitlement associations", err)
+		return nil, EntitlementForUserOutput{}, err
+	}
+
 	entitlementAssociationsBody, err := io.ReadAll(entitlementAssociationsRes.Body)
 	if err != nil {
 		th.Logger().Error("unable to read response body for "+path+" response", "error", err, "status", entitlementAssociationsRes.StatusCode)

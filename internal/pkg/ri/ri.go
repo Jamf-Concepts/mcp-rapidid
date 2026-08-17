@@ -151,3 +151,15 @@ func LogRIError(ctx context.Context, th *helper.ToolHelper, message string, err 
 			telemetry.ErrorCategoryThrownException)
 	}
 }
+
+// checkResponseStatus returns an error when an HTTP response is not a 2xx
+// success. RapidIdentity's DoCustomRequest returns the raw response without
+// validating the status code, so callers must guard against error responses
+// before reading and unmarshalling the body; otherwise a 4xx/5xx is silently
+// treated as an empty success.
+func checkResponseStatus(res *http.Response) error {
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		return fmt.Errorf("rapididentity API returned non-success status %d", res.StatusCode)
+	}
+	return nil
+}

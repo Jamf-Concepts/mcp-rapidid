@@ -48,6 +48,17 @@ func TestGetUserInfoInDelegation(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			// A non-2xx response whose body is valid JSON must be surfaced as an
+			// error, not silently unmarshalled into an empty "success".
+			name: "error status with valid json body",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusForbidden)
+				w.Write([]byte(`{"adminLimitEnforced":false,"profiles":[]}`))
+			},
+			wantErr:     true,
+			errContains: "non-success status",
+		},
 	}
 
 	for _, tt := range tests {
