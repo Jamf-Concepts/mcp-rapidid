@@ -61,13 +61,13 @@ type DelegationAttribute struct {
 }
 
 type DelegationGalItem struct {
-	Id              string  `json:"id" jsonschema:"The unique identifier for the GAL item"`
-	FriendlyName    string  `json:"friendlyName" jsonschema:"The human-readable name of the GAL item"`
-	Searchable      bool    `json:"searchable" jsonschema:"Whether this GAL item can be used as a search criterion"`
-	MultiValued     bool    `json:"multiValued" jsonschema:"Whether this GAL item holds multiple values"`
-	AllowMultiValue bool    `json:"allowMultiValue" jsonschema:"Whether multiple values are permitted"`
-	Type            string  `json:"type" jsonschema:"The data type of the GAL item (e.g. STRING, BOOLEAN, DATE)"`
-	TypeParams      *string `json:"typeParams" jsonschema:"Optional XML parameters for the type"`
+	Id              string `json:"id" jsonschema:"The unique identifier for the GAL item"`
+	FriendlyName    string `json:"friendlyName" jsonschema:"The human-readable name of the GAL item"`
+	Searchable      bool   `json:"searchable" jsonschema:"Whether this GAL item can be used as a search criterion"`
+	MultiValued     bool   `json:"multiValued" jsonschema:"Always set to false. Reserved for future use"`
+	AllowMultiValue bool   `json:"allowMultiValue" jsonschema:"Whether multiple values are permitted"`
+	Type            string `json:"type" jsonschema:"The data type of the GAL item (e.g. STRING, BOOLEAN, DATE)"`
+	TypeParams      string `json:"typeParams" jsonschema:"Optional XML parameters for the type. For example DN has a Display Template option and Dates have a date format option"`
 }
 
 type DelegationAction struct {
