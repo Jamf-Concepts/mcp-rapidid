@@ -85,18 +85,18 @@ type reportingUsersResponse struct {
 
 func SearchRapidIdentityUsers(ctx context.Context, req *mcp.CallToolRequest, input UserInput) (*mcp.CallToolResult, UserOutput, error) {
 	var err error
-	ctx, client, th, setupErr := ToolSetup(ctx, req, searchRapidIdentityUsersToolName)
+	ctx, client, sh, setupErr := ToolSetup(ctx, req, searchRapidIdentityUsersToolName)
 	if setupErr != nil {
 		return nil, UserOutput{}, setupErr
 	}
 	start := time.Now()
 	defer telemetry.RecordCompletion(ctx, searchRapidIdentityUsersToolName, start, &err)
 
-	th.Logger().Info(searchRapidIdentityUsersToolName+" tool called", "criteria", input.Criteria)
+	sh.Logger().Info(searchRapidIdentityUsersToolName+" tool called", "criteria", input.Criteria)
 
 	defer func(c *rapididentity.Client) {
 		if cerr := c.Close(); cerr != nil {
-			LogRIError(ctx, th, "unable to close rapididentity client", cerr)
+			LogRIError(ctx, sh, "unable to close rapididentity client", cerr)
 		}
 	}(client)
 
@@ -104,50 +104,48 @@ func SearchRapidIdentityUsers(ctx context.Context, req *mcp.CallToolRequest, inp
 	// users search, so search via the reporting endpoint instead. Username and
 	// password callers continue to use the delegation-based path below.
 	if UsingServiceIdentity() {
-		return searchUsersViaReporting(ctx, th, client, input)
+		return searchUsersViaReporting(ctx, sh, client, input)
 	}
 
-	th.Logger().Info("Calling profiles/delegations/my endpoint")
-	th.Notify().Info("Retrieving delegations for caller")
+	sh.Logger().Info("Calling profiles/delegations/my endpoint")
 	delegationRes, err := client.DoCustomRequest(ctx, "GET", "profiles/delegations/my", nil)
 	if err != nil {
-		LogRIError(ctx, th, "unable to retrieve delegations for user", err)
+		LogRIError(ctx, sh, "unable to retrieve delegations for user", err)
 		return nil, UserOutput{}, err
 	}
 
-	th.Logger().Debug("GET profiles/delegations/my response", "response", delegationRes)
+	sh.Logger().Debug("GET profiles/delegations/my response", "response", delegationRes)
 
 	defer func(res *http.Response) {
 		if cerr := res.Body.Close(); cerr != nil {
-			th.Logger().Warn("issue closing response body for profiles/delegations/my endpoint response", "error", cerr)
+			sh.Logger().Warn("issue closing response body for profiles/delegations/my endpoint response", "error", cerr)
 		}
 	}(delegationRes)
 
 	if err := checkResponseStatus(delegationRes); err != nil {
-		LogRIError(ctx, th, "unable to retrieve delegations for user", err)
+		LogRIError(ctx, sh, "unable to retrieve delegations for user", err)
 		return nil, UserOutput{}, err
 	}
 
 	delegationResBody, err := io.ReadAll(delegationRes.Body)
 	if err != nil {
-		th.Logger().Error("unable to read response body for the profiles/delegations/my response", "error", err, "status", delegationRes.StatusCode)
-		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", searchRapidIdentityUsersToolName), "see server logs", telemetry.ErrorCategoryThrownException)
+		sh.Logger().Error("unable to read response body for the profiles/delegations/my response", "error", err, "status", delegationRes.StatusCode)
+		telemetry.RecordError(ctx, fmt.Sprintf(telemetry.EventPrefix+telemetry.ToolErrorPrefix+"%s", searchRapidIdentityUsersToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, UserOutput{}, err
 	}
 
-	th.Logger().Debug("GET profiles/delegations/my response body", "body", string(delegationResBody))
+	sh.Logger().Debug("GET profiles/delegations/my response body", "body", string(delegationResBody))
 
 	var delegationOutputs []Delegation
 
 	err = json.Unmarshal(delegationResBody, &delegationOutputs)
 	if err != nil {
-		th.Logger().Error("unable to unmarshal json for GET profiles/delegations/my response body", "error", err)
-		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", searchRapidIdentityUsersToolName), "see server logs", telemetry.ErrorCategoryThrownException)
+		sh.Logger().Error("unable to unmarshal json for GET profiles/delegations/my response body", "error", err)
+		telemetry.RecordError(ctx, fmt.Sprintf(telemetry.EventPrefix+telemetry.ToolErrorPrefix+"%s", searchRapidIdentityUsersToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, UserOutput{}, err
 	}
 
-	th.Logger().Debug("Unmarshaled delegation output", "delegations", delegationOutputs)
-	th.Notify().Info(fmt.Sprintf("Retrieved %d delegations", len(delegationOutputs)))
+	sh.Logger().Debug("Unmarshaled delegation output", "delegations", delegationOutputs)
 
 	path := fmt.Sprintf("users?search=simple&criteria=%s", url.QueryEscape(input.Criteria))
 
@@ -155,49 +153,47 @@ func SearchRapidIdentityUsers(ctx context.Context, req *mcp.CallToolRequest, inp
 		path = fmt.Sprintf("%s&did=%s", path, url.QueryEscape(delegationOutput.Id))
 	}
 
-	th.Logger().Debug("Call GET users endpoint", "path", path)
-	th.Logger().Info("Searching users across retrieved delegations")
-	th.Notify().Info("Searching for users based on criteria")
+	sh.Logger().Debug("Call GET users endpoint", "path", path)
+	sh.Logger().Info("Searching users across retrieved delegations")
 
 	userRes, err := client.DoCustomRequest(ctx, "GET", path, nil)
 	if err != nil {
-		LogRIError(ctx, th, "unable to retrieve users based on supplied criteria", err)
+		LogRIError(ctx, sh, "unable to retrieve users based on supplied criteria", err)
 		return nil, UserOutput{}, err
 	}
 
-	th.Logger().Debug("GET "+path+" response", "response", userRes)
+	sh.Logger().Debug("GET "+path+" response", "response", userRes)
 
 	defer func(res *http.Response) {
 		if cerr := res.Body.Close(); cerr != nil {
-			th.Logger().Warn("issue closing response body for "+path+" endpoint response", "error", cerr)
+			sh.Logger().Warn("issue closing response body for "+path+" endpoint response", "error", cerr)
 		}
 	}(userRes)
 
 	if err := checkResponseStatus(userRes); err != nil {
-		LogRIError(ctx, th, "unable to retrieve users based on supplied criteria", err)
+		LogRIError(ctx, sh, "unable to retrieve users based on supplied criteria", err)
 		return nil, UserOutput{}, err
 	}
 
 	userResBody, err := io.ReadAll(userRes.Body)
 	if err != nil {
-		th.Logger().Error("unable to read response body for the "+path+" response", "error", err, "status", userRes.StatusCode)
-		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", searchRapidIdentityUsersToolName), "see server logs", telemetry.ErrorCategoryThrownException)
+		sh.Logger().Error("unable to read response body for the "+path+" response", "error", err, "status", userRes.StatusCode)
+		telemetry.RecordError(ctx, fmt.Sprintf(telemetry.EventPrefix+telemetry.ToolErrorPrefix+"%s", searchRapidIdentityUsersToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, UserOutput{}, err
 	}
 
-	th.Logger().Debug("GET "+path+" response body", "body", string(userResBody))
+	sh.Logger().Debug("GET "+path+" response body", "body", string(userResBody))
 
 	var userOutputs []User
 
 	err = json.Unmarshal(userResBody, &userOutputs)
 	if err != nil {
-		th.Logger().Error("unable to unmarshal json for GET "+path+" response body", "error", err)
-		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", searchRapidIdentityUsersToolName), "see server logs", telemetry.ErrorCategoryThrownException)
+		sh.Logger().Error("unable to unmarshal json for GET "+path+" response body", "error", err)
+		telemetry.RecordError(ctx, fmt.Sprintf(telemetry.EventPrefix+telemetry.ToolErrorPrefix+"%s", searchRapidIdentityUsersToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, UserOutput{}, err
 	}
 
-	th.Logger().Debug("Unmarshaled user outputs", "users", userOutputs)
-	th.Notify().Info(fmt.Sprintf("Retrieved %d users", len(userOutputs)))
+	sh.Logger().Debug("Unmarshaled user outputs", "users", userOutputs)
 
 	return nil, UserOutput{Users: userOutputs}, nil
 }
@@ -205,52 +201,50 @@ func SearchRapidIdentityUsers(ctx context.Context, req *mcp.CallToolRequest, inp
 // searchUsersViaReporting searches for users through the GET /reporting/users
 // endpoint. This path is used when authenticating with a Service Identity,
 // which does not return results through the delegation-scoped users search.
-func searchUsersViaReporting(ctx context.Context, th *helper.ToolHelper, client *rapididentity.Client, input UserInput) (*mcp.CallToolResult, UserOutput, error) {
+func searchUsersViaReporting(ctx context.Context, sh *helper.ServerHelper, client *rapididentity.Client, input UserInput) (*mcp.CallToolResult, UserOutput, error) {
 	path := fmt.Sprintf("reporting/users?criteria=%s", url.QueryEscape(input.Criteria))
 
-	th.Logger().Debug("Call GET reporting/users endpoint", "path", path)
-	th.Logger().Info("Searching users via the reporting endpoint for a service identity")
-	th.Notify().Info("Searching for users based on criteria")
+	sh.Logger().Debug("Call GET reporting/users endpoint", "path", path)
+	sh.Logger().Info("Searching users via the reporting endpoint for a service identity")
 
 	userRes, err := client.DoCustomRequest(ctx, "GET", path, nil)
 	if err != nil {
-		LogRIError(ctx, th, "unable to retrieve users based on supplied criteria", err)
+		LogRIError(ctx, sh, "unable to retrieve users based on supplied criteria", err)
 		return nil, UserOutput{}, err
 	}
 
-	th.Logger().Debug("GET "+path+" response", "response", userRes)
+	sh.Logger().Debug("GET "+path+" response", "response", userRes)
 
 	defer func(res *http.Response) {
 		if cerr := res.Body.Close(); cerr != nil {
-			th.Logger().Warn("issue closing response body for "+path+" endpoint response", "error", cerr)
+			sh.Logger().Warn("issue closing response body for "+path+" endpoint response", "error", cerr)
 		}
 	}(userRes)
 
 	if err := checkResponseStatus(userRes); err != nil {
-		LogRIError(ctx, th, "unable to retrieve users based on supplied criteria", err)
+		LogRIError(ctx, sh, "unable to retrieve users based on supplied criteria", err)
 		return nil, UserOutput{}, err
 	}
 
 	userResBody, err := io.ReadAll(userRes.Body)
 	if err != nil {
-		th.Logger().Error("unable to read response body for the "+path+" response", "error", err, "status", userRes.StatusCode)
-		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", searchRapidIdentityUsersToolName), "see server logs", telemetry.ErrorCategoryThrownException)
+		sh.Logger().Error("unable to read response body for the "+path+" response", "error", err, "status", userRes.StatusCode)
+		telemetry.RecordError(ctx, fmt.Sprintf(telemetry.EventPrefix+telemetry.ToolErrorPrefix+"%s", searchRapidIdentityUsersToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, UserOutput{}, err
 	}
 
-	th.Logger().Debug("GET "+path+" response body", "body", string(userResBody))
+	sh.Logger().Debug("GET "+path+" response body", "body", string(userResBody))
 
 	var reportingRes reportingUsersResponse
 
 	err = json.Unmarshal(userResBody, &reportingRes)
 	if err != nil {
-		th.Logger().Error("unable to unmarshal json for GET "+path+" response body", "error", err)
-		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", searchRapidIdentityUsersToolName), "see server logs", telemetry.ErrorCategoryThrownException)
+		sh.Logger().Error("unable to unmarshal json for GET "+path+" response body", "error", err)
+		telemetry.RecordError(ctx, fmt.Sprintf(telemetry.EventPrefix+telemetry.ToolErrorPrefix+"%s", searchRapidIdentityUsersToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, UserOutput{}, err
 	}
 
-	th.Logger().Debug("Unmarshaled user outputs", "users", reportingRes.Users)
-	th.Notify().Info(fmt.Sprintf("Retrieved %d users", len(reportingRes.Users)))
+	sh.Logger().Debug("Unmarshaled user outputs", "users", reportingRes.Users)
 
 	return nil, UserOutput{Users: reportingRes.Users}, nil
 }

@@ -15,32 +15,30 @@ const getPasswordPoliciesForToolName = "get-password-policies-for"
 
 func GetPasswordPoliciesFor(ctx context.Context, req *mcp.CallToolRequest, input rapididentity.GetPasswordPoliciesForInput) (*mcp.CallToolResult, rapididentity.PasswordPolicy, error) {
 	var err error
-	ctx, client, th, setupErr := ToolSetup(ctx, req, getPasswordPoliciesForToolName)
+	ctx, client, sh, setupErr := ToolSetup(ctx, req, getPasswordPoliciesForToolName)
 	if setupErr != nil {
 		return nil, rapididentity.PasswordPolicy{}, setupErr
 	}
 	start := time.Now()
 	defer telemetry.RecordCompletion(ctx, getPasswordPoliciesForToolName, start, &err)
 
-	th.Logger().Info(getPasswordPoliciesForToolName+" tool called", "userCount", len(input.UserIds))
+	sh.Logger().Info(getPasswordPoliciesForToolName+" tool called", "userCount", len(input.UserIds))
 
 	defer func(c *rapididentity.Client) {
 		if err := c.Close(); err != nil {
-			LogRIError(ctx, th, "unable to close rapididentity client", err)
+			LogRIError(ctx, sh, "unable to close rapididentity client", err)
 		}
 	}(client)
 
-	th.Logger().Info("Getting password policies for user")
-	th.Notify().Info("Retrieving password policies")
+	sh.Logger().Info("Getting password policies for user")
 	result, err := client.GetPasswordPoliciesFor(ctx, input)
 	if err != nil {
-		LogRIError(ctx, th, "unable to retrieve password policies", err)
+		LogRIError(ctx, sh, "unable to retrieve password policies", err)
 		return nil, rapididentity.PasswordPolicy{}, err
 	}
 
-	th.Logger().Debug("Get password policies response", "result", result)
-	th.Logger().Info("Retrieved password policies successfully")
-	th.Notify().Info("Retrieved password policies successfully")
+	sh.Logger().Debug("Get password policies response", "result", result)
+	sh.Logger().Info("Retrieved password policies successfully")
 
 	return nil, *result, nil
 }

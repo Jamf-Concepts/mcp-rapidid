@@ -46,18 +46,18 @@ type StartTaskRequestItem struct {
 
 func StartEntitlementRequest(ctx context.Context, req *mcp.CallToolRequest, input StartEntitlementRequestInput) (*mcp.CallToolResult, StartEntitlementRequestOutput, error) {
 	var err error
-	ctx, client, th, setupErr := ToolSetup(ctx, req, startEntitlementRequestToolName)
+	ctx, client, sh, setupErr := ToolSetup(ctx, req, startEntitlementRequestToolName)
 	if setupErr != nil {
 		return nil, StartEntitlementRequestOutput{}, setupErr
 	}
 	start := time.Now()
 	defer telemetry.RecordCompletion(ctx, startEntitlementRequestToolName, start, &err)
 
-	th.Logger().Info(startEntitlementRequestToolName+" tool called", "requestCount", len(input.RequestInfo))
+	sh.Logger().Info(startEntitlementRequestToolName+" tool called", "requestCount", len(input.RequestInfo))
 
 	defer func(c *rapididentity.Client) {
 		if err := c.Close(); err != nil {
-			LogRIError(ctx, th, "unable to close rapididentity client", err)
+			LogRIError(ctx, sh, "unable to close rapididentity client", err)
 		}
 	}(client)
 
@@ -76,54 +76,52 @@ func StartEntitlementRequest(ctx context.Context, req *mcp.CallToolRequest, inpu
 
 	requestPayload, err := json.Marshal(payload)
 	if err != nil {
-		th.Logger().Error("unable to marshal entitlement request payload", "error", err)
-		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", startEntitlementRequestToolName), "see server logs", telemetry.ErrorCategoryThrownException)
+		sh.Logger().Error("unable to marshal entitlement request payload", "error", err)
+		telemetry.RecordError(ctx, fmt.Sprintf(telemetry.EventPrefix+telemetry.ToolErrorPrefix+"%s", startEntitlementRequestToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, StartEntitlementRequestOutput{}, err
 	}
 
 	body := bytes.NewBuffer(requestPayload)
 
-	th.Logger().Info("Calling workflow/tasks/startTask endpoint", "itemCount", len(payload.RequestItems))
-	th.Notify().Info(fmt.Sprintf("Starting %d entitlement request(s)", len(payload.RequestItems)))
+	sh.Logger().Info("Calling workflow/tasks/startTask endpoint", "itemCount", len(payload.RequestItems))
 	startTaskRes, err := client.DoCustomRequest(ctx, "POST", "workflow/tasks/startTask", body)
 	if err != nil {
-		LogRIError(ctx, th, "unable to start entitlement task", err)
+		LogRIError(ctx, sh, "unable to start entitlement task", err)
 		return nil, StartEntitlementRequestOutput{}, err
 	}
 
-	th.Logger().Debug("POST workflow/tasks/startTask response", "response", startTaskRes)
+	sh.Logger().Debug("POST workflow/tasks/startTask response", "response", startTaskRes)
 
 	defer func(res *http.Response) {
 		if err := res.Body.Close(); err != nil {
-			th.Logger().Warn("issue closing response body for workflow/tasks/startTask endpoint response", "error", err)
+			sh.Logger().Warn("issue closing response body for workflow/tasks/startTask endpoint response", "error", err)
 		}
 	}(startTaskRes)
 
 	if err := checkResponseStatus(startTaskRes); err != nil {
-		LogRIError(ctx, th, "unable to start entitlement task", err)
+		LogRIError(ctx, sh, "unable to start entitlement task", err)
 		return nil, StartEntitlementRequestOutput{}, err
 	}
 
 	startTaskBody, err := io.ReadAll(startTaskRes.Body)
 	if err != nil {
-		th.Logger().Error("unable to read response body for workflow/tasks/startTask response", "error", err, "status", startTaskRes.StatusCode)
-		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", startEntitlementRequestToolName), "see server logs", telemetry.ErrorCategoryThrownException)
+		sh.Logger().Error("unable to read response body for workflow/tasks/startTask response", "error", err, "status", startTaskRes.StatusCode)
+		telemetry.RecordError(ctx, fmt.Sprintf(telemetry.EventPrefix+telemetry.ToolErrorPrefix+"%s", startEntitlementRequestToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, StartEntitlementRequestOutput{}, err
 	}
 
-	th.Logger().Debug("POST workflow/tasks/startTask response body", "body", string(startTaskBody))
+	sh.Logger().Debug("POST workflow/tasks/startTask response body", "body", string(startTaskBody))
 
 	var requestIds []string
 
 	err = json.Unmarshal(startTaskBody, &requestIds)
 	if err != nil {
-		th.Logger().Error("unable to unmarshal json for POST workflow/tasks/startTask response body", "error", err)
-		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", startEntitlementRequestToolName), "see server logs", telemetry.ErrorCategoryThrownException)
+		sh.Logger().Error("unable to unmarshal json for POST workflow/tasks/startTask response body", "error", err)
+		telemetry.RecordError(ctx, fmt.Sprintf(telemetry.EventPrefix+telemetry.ToolErrorPrefix+"%s", startEntitlementRequestToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, StartEntitlementRequestOutput{}, err
 	}
 
-	th.Logger().Info("Entitlement requests started successfully", "requestIdCount", len(requestIds))
-	th.Notify().Info(fmt.Sprintf("Started %d entitlement request(s) successfully", len(requestIds)))
+	sh.Logger().Info("Entitlement requests started successfully", "requestIdCount", len(requestIds))
 
 	return nil, StartEntitlementRequestOutput{
 		RequestIds: requestIds,

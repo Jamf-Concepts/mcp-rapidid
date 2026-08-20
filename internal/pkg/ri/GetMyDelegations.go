@@ -25,62 +25,60 @@ type GetMyDelegationsOutput struct {
 
 func GetMyDelegations(ctx context.Context, req *mcp.CallToolRequest, input GetMyDelegationsInput) (*mcp.CallToolResult, GetMyDelegationsOutput, error) {
 	var err error
-	ctx, client, th, setupErr := ToolSetup(ctx, req, getMyDelegationsToolName)
+	ctx, client, sh, setupErr := ToolSetup(ctx, req, getMyDelegationsToolName)
 	if setupErr != nil {
 		return nil, GetMyDelegationsOutput{}, setupErr
 	}
 	start := time.Now()
 	defer telemetry.RecordCompletion(ctx, getMyDelegationsToolName, start, &err)
 
-	th.Logger().Info(getMyDelegationsToolName + " tool called")
+	sh.Logger().Info(getMyDelegationsToolName + " tool called")
 
 	defer func(c *rapididentity.Client) {
 		if err := c.Close(); err != nil {
-			LogRIError(ctx, th, "unable to close rapididentity client", err)
+			LogRIError(ctx, sh, "unable to close rapididentity client", err)
 		}
 	}(client)
 
-	th.Logger().Info("Calling profiles/delegations/my endpoint")
-	th.Notify().Info("Retrieving delegations")
+	sh.Logger().Info("Calling profiles/delegations/my endpoint")
 	delegationRes, err := client.DoCustomRequest(ctx, "GET", "profiles/delegations/my", nil)
 	if err != nil {
-		LogRIError(ctx, th, "unable to retrieve delegations", err)
+		LogRIError(ctx, sh, "unable to retrieve delegations", err)
 		return nil, GetMyDelegationsOutput{}, err
 	}
 
-	th.Logger().Debug("GET profiles/delegations/my response", "response", delegationRes)
+	sh.Logger().Debug("GET profiles/delegations/my response", "response", delegationRes)
 
 	defer func(res *http.Response) {
 		if err := res.Body.Close(); err != nil {
-			th.Logger().Warn("issue closing response body for profiles/delegations/my endpoint response", "error", err)
+			sh.Logger().Warn("issue closing response body for profiles/delegations/my endpoint response", "error", err)
 		}
 	}(delegationRes)
 
 	if err := checkResponseStatus(delegationRes); err != nil {
-		LogRIError(ctx, th, "unable to retrieve delegations", err)
+		LogRIError(ctx, sh, "unable to retrieve delegations", err)
 		return nil, GetMyDelegationsOutput{}, err
 	}
 
 	delegationResBody, err := io.ReadAll(delegationRes.Body)
 	if err != nil {
-		th.Logger().Error("unable to read response body for the profiles/delegations/my response", "error", err, "status", delegationRes.StatusCode)
-		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", getMyDelegationsToolName), "see server logs", telemetry.ErrorCategoryThrownException)
+		sh.Logger().Error("unable to read response body for the profiles/delegations/my response", "error", err, "status", delegationRes.StatusCode)
+		telemetry.RecordError(ctx, fmt.Sprintf(telemetry.EventPrefix+telemetry.ToolErrorPrefix+"%s", getMyDelegationsToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, GetMyDelegationsOutput{}, err
 	}
 
-	th.Logger().Debug("GET profiles/delegations/my response body", "body", string(delegationResBody))
+	sh.Logger().Debug("GET profiles/delegations/my response body", "body", string(delegationResBody))
 
 	var delegations []Delegation
 
 	err = json.Unmarshal(delegationResBody, &delegations)
 	if err != nil {
-		th.Logger().Error("unable to unmarshal json for GET profiles/delegations/my response body", "error", err)
-		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", getMyDelegationsToolName), "see server logs", telemetry.ErrorCategoryThrownException)
+		sh.Logger().Error("unable to unmarshal json for GET profiles/delegations/my response body", "error", err)
+		telemetry.RecordError(ctx, fmt.Sprintf(telemetry.EventPrefix+telemetry.ToolErrorPrefix+"%s", getMyDelegationsToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, GetMyDelegationsOutput{}, err
 	}
 
-	th.Logger().Info("Retrieved delegations successfully", "delegationCount", len(delegations))
-	th.Notify().Info(fmt.Sprintf("Retrieved %d delegations", len(delegations)))
+	sh.Logger().Info("Retrieved delegations successfully", "delegationCount", len(delegations))
 
 	return nil, GetMyDelegationsOutput{Delegations: delegations}, nil
 }

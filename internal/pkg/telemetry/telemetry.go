@@ -15,7 +15,15 @@ import (
 )
 
 // EventPrefix is the namespace prefix for all RapidIdMcp telemetry keys and event types.
-const EventPrefix = "RapidIdMcp."
+const (
+	EventPrefix       = "RapidIdMcp."
+	ToolCalledEvent   = "Tool.called"
+	ToolNameId        = "Tool.name"
+	ToolErrorPrefix   = "ToolError."
+	PromptUsedEvent   = "Prompt.used"
+	PromptNameId      = "Prompt.name"
+	PromptErrorPrefix = "PromptError."
+)
 
 // ErrorCategory is the TelemetryDeck error category enum.
 type ErrorCategory string
@@ -162,9 +170,9 @@ func RecordCompletion(ctx context.Context, toolName string, start time.Time, _ *
 		return
 	}
 	duration := time.Since(start).Seconds()
-	sendAsync(ctx, rctx, sess, EventPrefix+"Tool.called", map[string]any{
+	sendAsync(ctx, rctx, sess, EventPrefix+ToolCalledEvent, map[string]any{
 		"TelemetryDeck.Signal.durationInSeconds": fmt.Sprintf("%.3f", duration),
-		EventPrefix + "Tool.name":                toolName,
+		EventPrefix + ToolNameId:                 toolName,
 	})
 }
 
@@ -179,5 +187,17 @@ func RecordError(ctx context.Context, id, message string, category ErrorCategory
 		"TelemetryDeck.Error.id":       id,
 		"TelemetryDeck.Error.message":  message,
 		"TelemetryDeck.Error.category": string(category),
+	})
+}
+
+func RecordPrompt(ctx context.Context, promptName string, start time.Time, _ *error) {
+	rctx, sess, ok := canSend(ctx)
+	if !ok {
+		return
+	}
+	duration := time.Since(start).Seconds()
+	sendAsync(ctx, rctx, sess, EventPrefix+PromptUsedEvent, map[string]any{
+		"TelemetryDeck.Signal.durationInSeconds": fmt.Sprintf("%.3f", duration),
+		EventPrefix + PromptNameId:               promptName,
 	})
 }
