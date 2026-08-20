@@ -38,10 +38,42 @@ type User struct {
 }
 
 type Delegation struct {
-	Id          string `json:"id" jsonschema:"The unique delegation id"`
-	Name        string `json:"name" jsonschema:"The friendly display name of the delegation"`
-	Description string `json:"description" jsonschema:"The description of the delegation"`
-	Type        string `json:"type" jsonschema:"The delegation type. This is either MY or customer. a MY delegation is for viewing your own user data while CUSTOM is for viewing other users' data'"`
+	Id                 string                `json:"id" jsonschema:"The unique delegation id"`
+	Name               string                `json:"name" jsonschema:"The friendly display name of the delegation"`
+	Description        string                `json:"description" jsonschema:"The description of the delegation"`
+	Type               string                `json:"type" jsonschema:"The delegation type. This is either MY or CUSTOM. a MY delegation is for viewing your own user data while CUSTOM is for viewing other users' data"`
+	PreloadResults     bool                  `json:"preloadResults" jsonschema:"Whether results are preloaded for this delegation"`
+	EditProfileMessage *string               `json:"editProfileMessage" jsonschema:"An optional message displayed when editing a profile"`
+	Layout1            string                `json:"layout1" jsonschema:"The first layout field name"`
+	Layout2            string                `json:"layout2" jsonschema:"The second layout field name"`
+	Layout3            string                `json:"layout3" jsonschema:"The third layout field name"`
+	Attributes         []DelegationAttribute `json:"attributes" jsonschema:"The list of attributes configured for this delegation"`
+	Actions            []DelegationAction    `json:"actions" jsonschema:"The list of actions available for this delegation"`
+}
+
+type DelegationAttribute struct {
+	GalItem       DelegationGalItem `json:"galItem" jsonschema:"The GAL item definition for this attribute"`
+	Name          string            `json:"name" jsonschema:"The display name of the attribute"`
+	Editable      bool              `json:"editable" jsonschema:"Whether this attribute can be edited"`
+	ShowInList    bool              `json:"showInList" jsonschema:"Whether this attribute is shown in list view"`
+	ShowInDetails bool              `json:"showInDetails" jsonschema:"Whether this attribute is shown in detail view"`
+	Required      bool              `json:"required" jsonschema:"Whether this attribute is required"`
+}
+
+type DelegationGalItem struct {
+	Id              string `json:"id" jsonschema:"The unique identifier for the GAL item"`
+	FriendlyName    string `json:"friendlyName" jsonschema:"The human-readable name of the GAL item"`
+	Searchable      bool   `json:"searchable" jsonschema:"Whether this GAL item can be used as a search criterion"`
+	MultiValued     bool   `json:"multiValued" jsonschema:"Always set to false. Reserved for future use"`
+	AllowMultiValue bool   `json:"allowMultiValue" jsonschema:"Whether multiple values are permitted"`
+	Type            string `json:"type" jsonschema:"The data type of the GAL item (e.g. STRING, BOOLEAN, DATE)"`
+	TypeParams      string `json:"typeParams" jsonschema:"Optional XML parameters for the type. For example DN has a Display Template option and Dates have a date format option"`
+}
+
+type DelegationAction struct {
+	Id          string `json:"id" jsonschema:"The unique identifier for the action"`
+	Name        string `json:"name" jsonschema:"The display name of the action"`
+	Description string `json:"description" jsonschema:"The description of the action"`
 }
 
 // reportingUsersResponse is the envelope returned by the GET /reporting/users
