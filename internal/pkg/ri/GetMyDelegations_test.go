@@ -46,42 +46,23 @@ func TestGetMyDelegations(t *testing.T) {
 				if d.Name != "Staff" {
 					t.Errorf("unexpected name: %s", d.Name)
 				}
+				if d.Description != "All Employee Accounts" {
+					t.Errorf("unexpected description: %s", d.Description)
+				}
 				if d.Type != "CUSTOM" {
 					t.Errorf("unexpected type: %s", d.Type)
 				}
-				if !d.PreloadResults {
-					t.Error("expected preloadResults to be true")
-				}
-				if d.EditProfileMessage != nil {
-					t.Errorf("expected editProfileMessage to be nil, got %v", d.EditProfileMessage)
-				}
-				if d.Layout1 != "first_name" {
-					t.Errorf("unexpected layout1: %s", d.Layout1)
-				}
-				if d.Layout2 != "last_name" {
-					t.Errorf("unexpected layout2: %s", d.Layout2)
-				}
-				if d.Layout3 != "email" {
-					t.Errorf("unexpected layout3: %s", d.Layout3)
-				}
 				if len(d.Attributes) != 1 {
-					t.Fatalf("expected 1 attribute, got %d", len(d.Attributes))
+					t.Fatalf("expected 1 attribute name, got %d", len(d.Attributes))
 				}
-				attr := d.Attributes[0]
-				if attr.Name != "ID" {
-					t.Errorf("unexpected attribute name: %s", attr.Name)
-				}
-				if attr.GalItem.Id != "idauto_id" {
-					t.Errorf("unexpected galItem id: %s", attr.GalItem.Id)
-				}
-				if attr.GalItem.Type != "STRING" {
-					t.Errorf("unexpected galItem type: %s", attr.GalItem.Type)
+				if d.Attributes[0] != "ID" {
+					t.Errorf("unexpected attribute name: %s", d.Attributes[0])
 				}
 				if len(d.Actions) != 1 {
-					t.Fatalf("expected 1 action, got %d", len(d.Actions))
+					t.Fatalf("expected 1 action name, got %d", len(d.Actions))
 				}
-				if d.Actions[0].Id != "DISABLE" {
-					t.Errorf("unexpected action id: %s", d.Actions[0].Id)
+				if d.Actions[0] != "Disable" {
+					t.Errorf("unexpected action name: %s", d.Actions[0])
 				}
 			},
 		},
