@@ -15,32 +15,30 @@ const deleteConnectActionToolName = "delete-connect-action"
 
 func DeleteConnectAction(ctx context.Context, req *mcp.CallToolRequest, input rapididentity.DeleteConnectActionByIdInput) (*mcp.CallToolResult, rapididentity.DeleteConnectActionByIdOutput, error) {
 	var err error
-	ctx, client, th, setupErr := ToolSetup(ctx, req, deleteConnectActionToolName)
+	ctx, client, sh, setupErr := ToolSetup(ctx, req, deleteConnectActionToolName)
 	if setupErr != nil {
 		return nil, rapididentity.DeleteConnectActionByIdOutput{}, setupErr
 	}
 	start := time.Now()
 	defer telemetry.RecordCompletion(ctx, deleteConnectActionToolName, start, &err)
 
-	th.Logger().Info(deleteConnectActionToolName+" tool called", "id", input.Id)
+	sh.Logger().Info(deleteConnectActionToolName+" tool called", "id", input.Id)
 
 	defer func(c *rapididentity.Client) {
 		if err := c.Close(); err != nil {
-			LogRIError(ctx, th, "unable to close rapididentity client", err)
+			LogRIError(ctx, sh, "unable to close rapididentity client", err)
 		}
 	}(client)
 
-	th.Logger().Info("Deleting Connect action by ID")
-	th.Notify().Info("Deleting Connect action")
+	sh.Logger().Info("Deleting Connect action by ID")
 	result, err := client.DeleteConnectActionById(ctx, input)
 	if err != nil {
-		LogRIError(ctx, th, "unable to delete Connect action", err)
+		LogRIError(ctx, sh, "unable to delete Connect action", err)
 		return nil, rapididentity.DeleteConnectActionByIdOutput{}, err
 	}
 
-	th.Logger().Debug("Delete Connect action response", "result", result)
-	th.Logger().Info("Deleted Connect action successfully")
-	th.Notify().Info("Deleted Connect action successfully")
+	sh.Logger().Debug("Delete Connect action response", "result", result)
+	sh.Logger().Info("Deleted Connect action successfully")
 
 	return nil, *result, nil
 }

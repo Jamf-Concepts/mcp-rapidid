@@ -103,7 +103,7 @@ func ClientInfoFromSession(session *mcp.ServerSession) (string, string) {
 	return clientName, clientVersion
 }
 
-func ToolSetup(ctx context.Context, req *mcp.CallToolRequest, toolName string) (context.Context, *rapididentity.Client, *helper.ToolHelper, error) {
+func ToolSetup(ctx context.Context, req *mcp.CallToolRequest, toolName string) (context.Context, *rapididentity.Client, *helper.ServerHelper, error) {
 	clientName, clientVersion := ClientInfoFromSession(req.Session)
 	// StdioTransport does not assign session IDs — req.Session.ID() always returns "".
 	// The SDK's GetSessionID option only applies to HTTP/SSE transports.
@@ -111,28 +111,28 @@ func ToolSetup(ctx context.Context, req *mcp.CallToolRequest, toolName string) (
 	// for stdio, swapping this to req.Session.ID() will automatically enable grouping.
 	ctx = telemetry.WithSession(ctx, req.Session.ID(), clientName, clientVersion)
 
-	th := helper.NewToolHelper(req, toolName)
+	sh := helper.NewToolServerHelper(req, toolName)
 	options := GetRapidIdentityOptions()
 
 	if options.RapidIdentityUser != nil && options.RapidIdentityUser.Username != "" {
-		th.Logger().Debug(fmt.Sprintf("connecting to %s with user %s with a password of length %d", options.BaseUrl, options.RapidIdentityUser.Username, len(options.RapidIdentityUser.Password)))
+		sh.Logger().Debug(fmt.Sprintf("connecting to %s with user %s with a password of length %d", options.BaseUrl, options.RapidIdentityUser.Username, len(options.RapidIdentityUser.Password)))
 	} else {
-		th.Logger().Debug(fmt.Sprintf("connecting to %s with a service identity with key length %d", options.BaseUrl, len(options.ServiceIdentity)))
+		sh.Logger().Debug(fmt.Sprintf("connecting to %s with a service identity with key length %d", options.BaseUrl, len(options.ServiceIdentity)))
 	}
 
 	client, err := rapididentity.New(options)
 	if err != nil {
-		LogRIError(ctx, th, "unable to establish rapididentity connection", err)
+		LogRIError(ctx, sh, "unable to establish rapididentity connection", err)
 		return ctx, nil, nil, err
 	}
 
-	return ctx, client, th, nil
+	return ctx, client, sh, nil
 }
 
-func LogRIError(ctx context.Context, th *helper.ToolHelper, message string, err error) {
+func LogRIError(ctx context.Context, sh *helper.ServerHelper, message string, err error) {
 	riError, ok := err.(rapididentity.RapidIdentityError)
 	if ok {
-		th.Logger().Error(
+		sh.Logger().Error(
 			message,
 			"error", riError.Message,
 			"reason", riError.Reason,
@@ -140,13 +140,13 @@ func LogRIError(ctx context.Context, th *helper.ToolHelper, message string, err 
 			"reqUrl", riError.ReqUrl.String(),
 			"code", riError.Code)
 		telemetry.RecordError(ctx,
-			fmt.Sprintf(telemetry.EventPrefix+"ToolError.%s", th.ToolName()),
+			fmt.Sprintf(telemetry.EventPrefix+"ToolError.%s", sh.ToolName()),
 			fmt.Sprintf("error occurred calling RapidIdentity API with status code %d", riError.Code),
 			telemetry.ErrorCategoryThrownException)
 	} else {
-		th.Logger().Error(message, "error", err)
+		sh.Logger().Error(message, "error", err)
 		telemetry.RecordError(ctx,
-			fmt.Sprintf(telemetry.EventPrefix+"ToolError.%s", th.ToolName()),
+			fmt.Sprintf(telemetry.EventPrefix+"ToolError.%s", sh.ToolName()),
 			"see server logs",
 			telemetry.ErrorCategoryThrownException)
 	}

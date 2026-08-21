@@ -107,18 +107,18 @@ func GetUserActivityFromAuditLog(ctx context.Context, req *mcp.CallToolRequest, 
 	}
 
 	var err error
-	ctx, client, th, setupErr := ToolSetup(ctx, req, getUserActivityFromAuditLogToolName)
+	ctx, client, sh, setupErr := ToolSetup(ctx, req, getUserActivityFromAuditLogToolName)
 	if setupErr != nil {
 		return nil, empty, setupErr
 	}
 	start := time.Now()
 	defer telemetry.RecordCompletion(ctx, getUserActivityFromAuditLogToolName, start, &err)
 
-	th.Logger().Info(getUserActivityFromAuditLogToolName+" tool called", "idautoId", input.IdautoID, "dateRange", input.DateRange)
+	sh.Logger().Info(getUserActivityFromAuditLogToolName+" tool called", "idautoId", input.IdautoID, "dateRange", input.DateRange)
 
 	defer func(c *rapididentity.Client) {
 		if cerr := c.Close(); cerr != nil {
-			LogRIError(ctx, th, "unable to close rapididentity client", cerr)
+			LogRIError(ctx, sh, "unable to close rapididentity client", cerr)
 		}
 	}(client)
 
@@ -159,8 +159,7 @@ func GetUserActivityFromAuditLog(ctx context.Context, req *mcp.CallToolRequest, 
 		})
 	}
 
-	th.Logger().Info("Running audit report", "idautoId", input.IdautoID, "dateRange", input.DateRange)
-	th.Notify().Info("Running audit report for user")
+	sh.Logger().Info("Running audit report", "idautoId", input.IdautoID, "dateRange", input.DateRange)
 	var result *rapididentity.RunAuditReportOutput
 	result, err = client.RunAuditReport(ctx, rapididentity.RunAuditReportInput{
 		Query: rapididentity.AuditReportQuery{
@@ -171,12 +170,11 @@ func GetUserActivityFromAuditLog(ctx context.Context, req *mcp.CallToolRequest, 
 		PageToken: input.PageToken,
 	})
 	if err != nil {
-		LogRIError(ctx, th, "unable to run audit report", err)
+		LogRIError(ctx, sh, "unable to run audit report", err)
 		return nil, empty, err
 	}
 
-	th.Logger().Info("Audit report completed successfully", "recordCount", len(result.AuditLogRecords), "adminLimitEnforced", result.AdminLimitEnforced)
-	th.Notify().Info(fmt.Sprintf("Retrieved %d audit log records", len(result.AuditLogRecords)))
+	sh.Logger().Info("Audit report completed successfully", "recordCount", len(result.AuditLogRecords), "adminLimitEnforced", result.AdminLimitEnforced)
 
 	return nil, GetUserActivityFromAuditLogOutput{
 		AuditLogRecords:    result.AuditLogRecords,

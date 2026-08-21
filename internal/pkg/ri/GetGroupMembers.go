@@ -32,18 +32,18 @@ type GetGroupMembersOutput struct {
 
 func GetGroupMembers(ctx context.Context, req *mcp.CallToolRequest, input GetGroupMembersInput) (*mcp.CallToolResult, GetGroupMembersOutput, error) {
 	var err error
-	ctx, client, th, setupErr := ToolSetup(ctx, req, getGroupMembersToolName)
+	ctx, client, sh, setupErr := ToolSetup(ctx, req, getGroupMembersToolName)
 	if setupErr != nil {
 		return nil, GetGroupMembersOutput{}, setupErr
 	}
 	start := time.Now()
 	defer telemetry.RecordCompletion(ctx, getGroupMembersToolName, start, &err)
 
-	th.Logger().Info(getGroupMembersToolName+" tool called", "groupId", input.GroupId, "pageSize", input.PageSize)
+	sh.Logger().Info(getGroupMembersToolName+" tool called", "groupId", input.GroupId, "pageSize", input.PageSize)
 
 	defer func(c *rapididentity.Client) {
 		if err := c.Close(); err != nil {
-			LogRIError(ctx, th, "unable to close rapididentity client", err)
+			LogRIError(ctx, sh, "unable to close rapididentity client", err)
 		}
 	}(client)
 
@@ -52,47 +52,45 @@ func GetGroupMembers(ctx context.Context, req *mcp.CallToolRequest, input GetGro
 		path = fmt.Sprintf("%s&pagingSessionId=%s", path, url.QueryEscape(input.PagingSessionId))
 	}
 
-	th.Logger().Info("Getting group members", "path", path)
-	th.Notify().Info("Retrieving group members")
+	sh.Logger().Info("Getting group members", "path", path)
 	membersRes, err := client.DoCustomRequest(ctx, "GET", path, nil)
 	if err != nil {
-		LogRIError(ctx, th, "unable to retrieve group members", err)
+		LogRIError(ctx, sh, "unable to retrieve group members", err)
 		return nil, GetGroupMembersOutput{}, err
 	}
 
-	th.Logger().Debug("GET "+path+" response", "response", membersRes)
+	sh.Logger().Debug("GET "+path+" response", "response", membersRes)
 
 	defer func(res *http.Response) {
 		if err := res.Body.Close(); err != nil {
-			th.Logger().Warn("issue closing response body for "+path+" endpoint response", "error", err)
+			sh.Logger().Warn("issue closing response body for "+path+" endpoint response", "error", err)
 		}
 	}(membersRes)
 
 	if err := checkResponseStatus(membersRes); err != nil {
-		LogRIError(ctx, th, "unable to retrieve group members", err)
+		LogRIError(ctx, sh, "unable to retrieve group members", err)
 		return nil, GetGroupMembersOutput{}, err
 	}
 
 	membersBody, err := io.ReadAll(membersRes.Body)
 	if err != nil {
-		th.Logger().Error("unable to read response body for "+path+" response", "error", err, "status", membersRes.StatusCode)
-		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", getGroupMembersToolName), "see server logs", telemetry.ErrorCategoryThrownException)
+		sh.Logger().Error("unable to read response body for "+path+" response", "error", err, "status", membersRes.StatusCode)
+		telemetry.RecordError(ctx, fmt.Sprintf(telemetry.EventPrefix+telemetry.ToolErrorPrefix+"%s", getGroupMembersToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, GetGroupMembersOutput{}, err
 	}
 
-	th.Logger().Debug("GET "+path+" response body", "body", string(membersBody))
+	sh.Logger().Debug("GET "+path+" response body", "body", string(membersBody))
 
 	var output GetGroupMembersOutput
 
 	err = json.Unmarshal(membersBody, &output)
 	if err != nil {
-		th.Logger().Error("unable to unmarshal json for GET "+path+" response body", "error", err)
-		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", getGroupMembersToolName), "see server logs", telemetry.ErrorCategoryThrownException)
+		sh.Logger().Error("unable to unmarshal json for GET "+path+" response body", "error", err)
+		telemetry.RecordError(ctx, fmt.Sprintf(telemetry.EventPrefix+telemetry.ToolErrorPrefix+"%s", getGroupMembersToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, GetGroupMembersOutput{}, err
 	}
 
-	th.Logger().Info("Retrieved group members successfully", "totalCount", output.TotalCount)
-	th.Notify().Info(fmt.Sprintf("Retrieved %d group members", output.TotalCount))
+	sh.Logger().Info("Retrieved group members successfully", "totalCount", output.TotalCount)
 
 	return nil, output, nil
 }

@@ -15,32 +15,30 @@ const getConnectFilesToolName = "get-connect-files"
 
 func GetConnectFiles(ctx context.Context, req *mcp.CallToolRequest, input rapididentity.GetConnectFilesInput) (*mcp.CallToolResult, rapididentity.GetConnectFilesOutput, error) {
 	var err error
-	ctx, client, th, setupErr := ToolSetup(ctx, req, getConnectFilesToolName)
+	ctx, client, sh, setupErr := ToolSetup(ctx, req, getConnectFilesToolName)
 	if setupErr != nil {
 		return nil, rapididentity.GetConnectFilesOutput{}, setupErr
 	}
 	start := time.Now()
 	defer telemetry.RecordCompletion(ctx, getConnectFilesToolName, start, &err)
 
-	th.Logger().Info(getConnectFilesToolName + " tool called")
+	sh.Logger().Info(getConnectFilesToolName + " tool called")
 
 	defer func(c *rapididentity.Client) {
 		if err := c.Close(); err != nil {
-			LogRIError(ctx, th, "unable to close rapididentity client", err)
+			LogRIError(ctx, sh, "unable to close rapididentity client", err)
 		}
 	}(client)
 
-	th.Logger().Info("Getting Connect files")
-	th.Notify().Info("Retrieving Connect files")
+	sh.Logger().Info("Getting Connect files")
 	result, err := client.GetConnectFiles(ctx, input)
 	if err != nil {
-		LogRIError(ctx, th, "unable to retrieve Connect files", err)
+		LogRIError(ctx, sh, "unable to retrieve Connect files", err)
 		return nil, rapididentity.GetConnectFilesOutput{}, err
 	}
 
-	th.Logger().Debug("Get Connect files response", "result", result)
-	th.Logger().Info("Retrieved Connect files successfully")
-	th.Notify().Info("Retrieved Connect files successfully")
+	sh.Logger().Debug("Get Connect files response", "result", result)
+	sh.Logger().Info("Retrieved Connect files successfully")
 
 	return nil, *result, nil
 }

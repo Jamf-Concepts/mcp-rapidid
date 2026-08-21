@@ -10,9 +10,8 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// Provides utilities for MCP tools
-// to use.
-type ToolHelper struct {
+// Provides utilities for the MCP Server
+type ServerHelper struct {
 	// JSON logger for standard error.
 	// Utilized for developers looking to
 	// log events, and errors with the system.
@@ -20,11 +19,6 @@ type ToolHelper struct {
 
 	// The log level of the logger.
 	logLevel *slog.LevelVar
-
-	// MCP logging notifications that are send to
-	// the client. Utilized for providing notifications
-	// on what the server is doing.
-	notify *slog.Logger
 
 	// Server session of the MCP server.
 	// Provides information on what the client
@@ -39,10 +33,14 @@ type ToolHelper struct {
 	// The name of the tool this helper was created for.
 	// Used to build structured telemetry error IDs.
 	toolName string
+
+	// The name of the prompt this helper was created for.
+	// Used to build structured telemetry error IDs.
+	promptName string
 }
 
 // Instantiates a ToolHelper
-func NewToolHelper(req *mcp.CallToolRequest, toolName string) *ToolHelper {
+func NewToolServerHelper(req *mcp.CallToolRequest, toolName string) *ServerHelper {
 	levelVar := new(slog.LevelVar)
 	configuredLevel := os.Getenv("RI_LOG_LEVEL")
 	err := levelVar.UnmarshalText([]byte(configuredLevel))
@@ -50,49 +48,64 @@ func NewToolHelper(req *mcp.CallToolRequest, toolName string) *ToolHelper {
 		levelVar.Set(slog.LevelError)
 	}
 
-	return &ToolHelper{
+	return &ServerHelper{
 		logger:   slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: levelVar.Level()})),
 		logLevel: levelVar,
-		notify: slog.New(mcp.NewLoggingHandler(req.Session, &mcp.LoggingHandlerOptions{
-			LoggerName: toolName,
-		})),
 		session:  req.Session,
 		token:    req.Params.GetProgressToken(),
 		toolName: toolName,
 	}
 }
 
-// Provides logger.
-func (th *ToolHelper) Logger() *slog.Logger {
-	return th.logger
+// Instantiates a PromptHelper
+func NewPromptServerHelper(req *mcp.GetPromptRequest, promptName string) *ServerHelper {
+	levelVar := new(slog.LevelVar)
+	configuredLevel := os.Getenv("RI_LOG_LEVEL")
+	err := levelVar.UnmarshalText([]byte(configuredLevel))
+	if err != nil {
+		levelVar.Set(slog.LevelError)
+	}
+
+	return &ServerHelper{
+		logger:     slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: levelVar.Level()})),
+		logLevel:   levelVar,
+		session:    req.Session,
+		token:      req.Params.GetProgressToken(),
+		promptName: promptName,
+	}
 }
 
-// Provides notifier
-func (th *ToolHelper) Notify() *slog.Logger {
-	return th.notify
+// Provides logger.
+func (sh *ServerHelper) Logger() *slog.Logger {
+	return sh.logger
 }
 
 // Tracks progress of known process length
-func (th *ToolHelper) ProgressStep(ctx context.Context, progress float64, total float64, message string) {
-	if th.token != nil {
-		err := th.session.NotifyProgress(ctx, &mcp.ProgressNotificationParams{
+func (sh *ServerHelper) ProgressStep(ctx context.Context, progress float64, total float64, message string) {
+	if sh.token != nil {
+		err := sh.session.NotifyProgress(ctx, &mcp.ProgressNotificationParams{
 			Progress:      progress,
 			Total:         total,
 			Message:       message,
-			ProgressToken: th.token,
+			ProgressToken: sh.token,
 		})
 		if err != nil {
-			th.logger.Warn("progress notification failed", "error", err)
+			sh.logger.Warn("progress notification failed", "error", err)
 		}
 	}
 }
 
 // Retrieve the log level of logger
-func (th *ToolHelper) LogLevel() slog.Level {
-	return th.logLevel.Level()
+func (sh *ServerHelper) LogLevel() slog.Level {
+	return sh.logLevel.Level()
 }
 
 // ToolName returns the name of the tool this helper was created for.
-func (th *ToolHelper) ToolName() string {
-	return th.toolName
+func (sh *ServerHelper) ToolName() string {
+	return sh.toolName
+}
+
+// PromptName returns the name of the tool this helper was created for.
+func (sh *ServerHelper) PromptName() string {
+	return sh.promptName
 }

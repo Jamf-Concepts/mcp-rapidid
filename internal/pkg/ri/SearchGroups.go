@@ -44,63 +44,61 @@ type Group struct {
 
 func SearchGroups(ctx context.Context, req *mcp.CallToolRequest, input SearchGroupsInput) (*mcp.CallToolResult, SearchGroupsOutput, error) {
 	var err error
-	ctx, client, th, setupErr := ToolSetup(ctx, req, searchGroupsToolName)
+	ctx, client, sh, setupErr := ToolSetup(ctx, req, searchGroupsToolName)
 	if setupErr != nil {
 		return nil, SearchGroupsOutput{}, setupErr
 	}
 	start := time.Now()
 	defer telemetry.RecordCompletion(ctx, searchGroupsToolName, start, &err)
 
-	th.Logger().Info(searchGroupsToolName+" tool called", "criteria", input.Criteria)
+	sh.Logger().Info(searchGroupsToolName+" tool called", "criteria", input.Criteria)
 
 	defer func(c *rapididentity.Client) {
 		if err := c.Close(); err != nil {
-			LogRIError(ctx, th, "unable to close rapididentity client", err)
+			LogRIError(ctx, sh, "unable to close rapididentity client", err)
 		}
 	}(client)
 
 	path := fmt.Sprintf("roles/managedGroups/searchTask?criteria=%s", url.QueryEscape(input.Criteria))
 
-	th.Logger().Info("Searching groups", "path", path)
-	th.Notify().Info("Searching for groups based on criteria")
+	sh.Logger().Info("Searching groups", "path", path)
 	groupsRes, err := client.DoCustomRequest(ctx, "POST", path, nil)
 	if err != nil {
-		LogRIError(ctx, th, "unable to search groups", err)
+		LogRIError(ctx, sh, "unable to search groups", err)
 		return nil, SearchGroupsOutput{}, err
 	}
 
-	th.Logger().Debug("POST "+path+" response", "response", groupsRes)
+	sh.Logger().Debug("POST "+path+" response", "response", groupsRes)
 
 	defer func(r *http.Response) {
 		if err := r.Body.Close(); err != nil {
-			th.Logger().Warn("issue closing response body for "+path+" endpoint response", "error", err)
+			sh.Logger().Warn("issue closing response body for "+path+" endpoint response", "error", err)
 		}
 	}(groupsRes)
 
 	if err := checkResponseStatus(groupsRes); err != nil {
-		LogRIError(ctx, th, "unable to search groups", err)
+		LogRIError(ctx, sh, "unable to search groups", err)
 		return nil, SearchGroupsOutput{}, err
 	}
 
 	resBody, err := io.ReadAll(groupsRes.Body)
 	if err != nil {
-		th.Logger().Error("unable to read response body for "+path+" response", "error", err, "status", groupsRes.StatusCode)
-		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", searchGroupsToolName), "see server logs", telemetry.ErrorCategoryThrownException)
+		sh.Logger().Error("unable to read response body for "+path+" response", "error", err, "status", groupsRes.StatusCode)
+		telemetry.RecordError(ctx, fmt.Sprintf(telemetry.EventPrefix+telemetry.ToolErrorPrefix+"%s", searchGroupsToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, SearchGroupsOutput{}, err
 	}
 
-	th.Logger().Debug("POST "+path+" response body", "body", string(resBody))
+	sh.Logger().Debug("POST "+path+" response body", "body", string(resBody))
 
 	var output SearchGroupsOutput
 	err = json.Unmarshal(resBody, &output)
 	if err != nil {
-		th.Logger().Error("unable to unmarshal json for POST "+path+" response body", "error", err)
-		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", searchGroupsToolName), "see server logs", telemetry.ErrorCategoryThrownException)
+		sh.Logger().Error("unable to unmarshal json for POST "+path+" response body", "error", err)
+		telemetry.RecordError(ctx, fmt.Sprintf(telemetry.EventPrefix+telemetry.ToolErrorPrefix+"%s", searchGroupsToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, SearchGroupsOutput{}, err
 	}
 
-	th.Logger().Info("Retrieved groups successfully", "groupCount", len(output.Groups), "userCount", len(output.Users))
-	th.Notify().Info(fmt.Sprintf("Retrieved %d groups", len(output.Groups)))
+	sh.Logger().Info("Retrieved groups successfully", "groupCount", len(output.Groups), "userCount", len(output.Users))
 
 	return nil, output, nil
 }

@@ -15,32 +15,30 @@ const runConnectActionToolName = "run-connect-action"
 
 func RunConnectAction(ctx context.Context, req *mcp.CallToolRequest, input rapididentity.RunConnectActionInput) (*mcp.CallToolResult, rapididentity.RunConnectActionOutput, error) {
 	var err error
-	ctx, client, th, setupErr := ToolSetup(ctx, req, runConnectActionToolName)
+	ctx, client, sh, setupErr := ToolSetup(ctx, req, runConnectActionToolName)
 	if setupErr != nil {
 		return nil, rapididentity.RunConnectActionOutput{}, setupErr
 	}
 	start := time.Now()
 	defer telemetry.RecordCompletion(ctx, runConnectActionToolName, start, &err)
 
-	th.Logger().Info(runConnectActionToolName + " tool called")
+	sh.Logger().Info(runConnectActionToolName + " tool called")
 
 	defer func(c *rapididentity.Client) {
 		if err := c.Close(); err != nil {
-			LogRIError(ctx, th, "unable to close rapididentity client", err)
+			LogRIError(ctx, sh, "unable to close rapididentity client", err)
 		}
 	}(client)
 
-	th.Logger().Info("Running Connect action")
-	th.Notify().Info("Running Connect action")
+	sh.Logger().Info("Running Connect action")
 	result, err := client.RunConnectAction(ctx, input)
 	if err != nil {
-		LogRIError(ctx, th, "unable to run Connect action", err)
+		LogRIError(ctx, sh, "unable to run Connect action", err)
 		return nil, rapididentity.RunConnectActionOutput{}, err
 	}
 
-	th.Logger().Debug("Run Connect action response", "result", result)
-	th.Logger().Info("Connect action ran successfully")
-	th.Notify().Info("Connect action ran successfully")
+	sh.Logger().Debug("Run Connect action response", "result", result)
+	sh.Logger().Info("Connect action ran successfully")
 
 	return nil, *result, nil
 }

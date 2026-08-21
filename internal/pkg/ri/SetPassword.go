@@ -19,31 +19,29 @@ type SetPasswordOutput struct {
 
 func SetPassword(ctx context.Context, req *mcp.CallToolRequest, input rapididentity.SetPasswordInput) (*mcp.CallToolResult, SetPasswordOutput, error) {
 	var err error
-	ctx, client, th, setupErr := ToolSetup(ctx, req, setPasswordToolName)
+	ctx, client, sh, setupErr := ToolSetup(ctx, req, setPasswordToolName)
 	if setupErr != nil {
 		return nil, SetPasswordOutput{}, setupErr
 	}
 	start := time.Now()
 	defer telemetry.RecordCompletion(ctx, setPasswordToolName, start, &err)
 
-	th.Logger().Info(setPasswordToolName+" tool called", "delegationId", input.DelegationId)
+	sh.Logger().Info(setPasswordToolName+" tool called", "delegationId", input.DelegationId)
 
 	defer func(c *rapididentity.Client) {
 		if err := c.Close(); err != nil {
-			LogRIError(ctx, th, "unable to close rapididentity client", err)
+			LogRIError(ctx, sh, "unable to close rapididentity client", err)
 		}
 	}(client)
 
-	th.Logger().Info("Setting password for user")
-	th.Notify().Info("Setting password")
+	sh.Logger().Info("Setting password for user")
 	result, err := client.SetPassword(ctx, input)
 	if err != nil {
-		LogRIError(ctx, th, "unable to set password", err)
+		LogRIError(ctx, sh, "unable to set password", err)
 		return nil, SetPasswordOutput{}, err
 	}
 
-	th.Logger().Info("Password set successfully")
-	th.Notify().Info("Password set successfully")
+	sh.Logger().Info("Password set successfully")
 
 	return nil, SetPasswordOutput{Result: result}, nil
 }

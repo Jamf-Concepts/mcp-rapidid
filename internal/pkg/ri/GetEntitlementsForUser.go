@@ -45,63 +45,61 @@ type ResourceAssociation struct {
 
 func GetEntitlementForUser(ctx context.Context, req *mcp.CallToolRequest, input EntitlementForUserInput) (*mcp.CallToolResult, EntitlementForUserOutput, error) {
 	var err error
-	ctx, client, th, setupErr := ToolSetup(ctx, req, searchEntitlementsForUserToolName)
+	ctx, client, sh, setupErr := ToolSetup(ctx, req, searchEntitlementsForUserToolName)
 	if setupErr != nil {
 		return nil, EntitlementForUserOutput{}, setupErr
 	}
 	start := time.Now()
 	defer telemetry.RecordCompletion(ctx, searchEntitlementsForUserToolName, start, &err)
 
-	th.Logger().Info(searchEntitlementsForUserToolName+" tool called", "userId", input.Id)
+	sh.Logger().Info(searchEntitlementsForUserToolName+" tool called", "userId", input.Id)
 
 	defer func(c *rapididentity.Client) {
 		if err := c.Close(); err != nil {
-			LogRIError(ctx, th, "unable to close rapididentity client", err)
+			LogRIError(ctx, sh, "unable to close rapididentity client", err)
 		}
 	}(client)
 
 	path := fmt.Sprintf("workflow/users/%s/associations", input.Id)
-	th.Logger().Info("Calling entitlement associations endpoint", "path", path)
-	th.Notify().Info("Retrieving entitlements for user")
+	sh.Logger().Info("Calling entitlement associations endpoint", "path", path)
 	entitlementAssociationsRes, err := client.DoCustomRequest(ctx, "GET", path, nil)
 	if err != nil {
-		LogRIError(ctx, th, "unable to retrieve entitlement associations", err)
+		LogRIError(ctx, sh, "unable to retrieve entitlement associations", err)
 		return nil, EntitlementForUserOutput{}, err
 	}
 
-	th.Logger().Debug("GET "+path+" response", "response", entitlementAssociationsRes)
+	sh.Logger().Debug("GET "+path+" response", "response", entitlementAssociationsRes)
 
 	defer func(res *http.Response) {
 		if err := res.Body.Close(); err != nil {
-			th.Logger().Warn("issue closing response body for "+path+" endpoint response", "error", err)
+			sh.Logger().Warn("issue closing response body for "+path+" endpoint response", "error", err)
 		}
 	}(entitlementAssociationsRes)
 
 	if err := checkResponseStatus(entitlementAssociationsRes); err != nil {
-		LogRIError(ctx, th, "unable to retrieve entitlement associations", err)
+		LogRIError(ctx, sh, "unable to retrieve entitlement associations", err)
 		return nil, EntitlementForUserOutput{}, err
 	}
 
 	entitlementAssociationsBody, err := io.ReadAll(entitlementAssociationsRes.Body)
 	if err != nil {
-		th.Logger().Error("unable to read response body for "+path+" response", "error", err, "status", entitlementAssociationsRes.StatusCode)
-		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", searchEntitlementsForUserToolName), "see server logs", telemetry.ErrorCategoryThrownException)
+		sh.Logger().Error("unable to read response body for "+path+" response", "error", err, "status", entitlementAssociationsRes.StatusCode)
+		telemetry.RecordError(ctx, fmt.Sprintf(telemetry.EventPrefix+telemetry.ToolErrorPrefix+"%s", searchEntitlementsForUserToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, EntitlementForUserOutput{}, err
 	}
 
-	th.Logger().Debug("GET "+path+" response body", "body", string(entitlementAssociationsBody))
+	sh.Logger().Debug("GET "+path+" response body", "body", string(entitlementAssociationsBody))
 
 	var output EntitlementForUserOutput
 
 	err = json.Unmarshal(entitlementAssociationsBody, &output)
 	if err != nil {
-		th.Logger().Error("unable to unmarshal json for GET "+path+" response body", "error", err)
-		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", searchEntitlementsForUserToolName), "see server logs", telemetry.ErrorCategoryThrownException)
+		sh.Logger().Error("unable to unmarshal json for GET "+path+" response body", "error", err)
+		telemetry.RecordError(ctx, fmt.Sprintf(telemetry.EventPrefix+telemetry.ToolErrorPrefix+"%s", searchEntitlementsForUserToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, EntitlementForUserOutput{}, err
 	}
 
-	th.Logger().Info("Retrieved entitlements successfully", "resourceCount", len(output.Resources), "associationCount", len(output.ResourceAssociations))
-	th.Notify().Info(fmt.Sprintf("Retrieved %d entitlements for user", len(output.Resources)))
+	sh.Logger().Info("Retrieved entitlements successfully", "resourceCount", len(output.Resources), "associationCount", len(output.ResourceAssociations))
 
 	return nil, output, nil
 }

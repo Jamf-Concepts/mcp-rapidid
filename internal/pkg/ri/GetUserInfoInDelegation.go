@@ -41,18 +41,18 @@ type DelegationUserAttribute struct {
 
 func GetUserInfoInDelegation(ctx context.Context, req *mcp.CallToolRequest, input UserInfoInDelegationInput) (*mcp.CallToolResult, UserInfoInDelegationOutput, error) {
 	var err error
-	ctx, client, th, setupErr := ToolSetup(ctx, req, getUserInfoInDelegationToolName)
+	ctx, client, sh, setupErr := ToolSetup(ctx, req, getUserInfoInDelegationToolName)
 	if setupErr != nil {
 		return nil, UserInfoInDelegationOutput{}, setupErr
 	}
 	start := time.Now()
 	defer telemetry.RecordCompletion(ctx, getUserInfoInDelegationToolName, start, &err)
 
-	th.Logger().Info(getUserInfoInDelegationToolName+" tool called", "delegationId", input.DelegationId)
+	sh.Logger().Info(getUserInfoInDelegationToolName+" tool called", "delegationId", input.DelegationId)
 
 	defer func(c *rapididentity.Client) {
 		if err := c.Close(); err != nil {
-			LogRIError(ctx, th, "unable to close rapididentity client", err)
+			LogRIError(ctx, sh, "unable to close rapididentity client", err)
 		}
 	}(client)
 
@@ -61,47 +61,45 @@ func GetUserInfoInDelegation(ctx context.Context, req *mcp.CallToolRequest, inpu
 	headers := http.Header{}
 	headers.Set("Content-Type", "text/plain")
 
-	th.Logger().Info("Searching users by filter in delegation", "path", path)
-	th.Notify().Info("Searching users in delegation")
+	sh.Logger().Info("Searching users by filter in delegation", "path", path)
 	profilesRes, err := client.DoCustomRequestWithHeaders(ctx, "POST", path, headers, body)
 	if err != nil {
-		LogRIError(ctx, th, "unable to retrieve user info in delegation", err)
+		LogRIError(ctx, sh, "unable to retrieve user info in delegation", err)
 		return nil, UserInfoInDelegationOutput{}, err
 	}
 
-	th.Logger().Debug("POST "+path+" response", "response", profilesRes)
+	sh.Logger().Debug("POST "+path+" response", "response", profilesRes)
 
 	defer func(res *http.Response) {
 		if err := res.Body.Close(); err != nil {
-			th.Logger().Warn("issue closing response body for "+path+" endpoint response", "error", err)
+			sh.Logger().Warn("issue closing response body for "+path+" endpoint response", "error", err)
 		}
 	}(profilesRes)
 
 	if err := checkResponseStatus(profilesRes); err != nil {
-		LogRIError(ctx, th, "unable to retrieve user info in delegation", err)
+		LogRIError(ctx, sh, "unable to retrieve user info in delegation", err)
 		return nil, UserInfoInDelegationOutput{}, err
 	}
 
 	profilesBody, err := io.ReadAll(profilesRes.Body)
 	if err != nil {
-		th.Logger().Error("unable to read response body for "+path+" response", "error", err, "status", profilesRes.StatusCode)
-		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", getUserInfoInDelegationToolName), "see server logs", telemetry.ErrorCategoryThrownException)
+		sh.Logger().Error("unable to read response body for "+path+" response", "error", err, "status", profilesRes.StatusCode)
+		telemetry.RecordError(ctx, fmt.Sprintf(telemetry.EventPrefix+telemetry.ToolErrorPrefix+"%s", getUserInfoInDelegationToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, UserInfoInDelegationOutput{}, err
 	}
 
-	th.Logger().Debug("POST "+path+" response body", "body", string(profilesBody))
+	sh.Logger().Debug("POST "+path+" response body", "body", string(profilesBody))
 
 	var output UserInfoInDelegationOutput
 
 	err = json.Unmarshal(profilesBody, &output)
 	if err != nil {
-		th.Logger().Error("unable to unmarshal json for POST "+path+" response body", "error", err)
-		telemetry.RecordError(ctx, fmt.Sprintf("RapidIdMcp.ToolError.%s", getUserInfoInDelegationToolName), "see server logs", telemetry.ErrorCategoryThrownException)
+		sh.Logger().Error("unable to unmarshal json for POST "+path+" response body", "error", err)
+		telemetry.RecordError(ctx, fmt.Sprintf(telemetry.EventPrefix+telemetry.ToolErrorPrefix+"%s", getUserInfoInDelegationToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, UserInfoInDelegationOutput{}, err
 	}
 
-	th.Logger().Info("Retrieved user info in delegation successfully", "profileCount", len(output.Profiles))
-	th.Notify().Info(fmt.Sprintf("Retrieved %d user profiles", len(output.Profiles)))
+	sh.Logger().Info("Retrieved user info in delegation successfully", "profileCount", len(output.Profiles))
 
 	return nil, output, nil
 }

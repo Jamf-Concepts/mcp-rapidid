@@ -4,7 +4,6 @@ package ri
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/Jamf-Concepts/mcp-rapidid/internal/pkg/telemetry"
@@ -18,33 +17,31 @@ type GetConnectProjectsInput struct{}
 
 func GetConnectProjects(ctx context.Context, req *mcp.CallToolRequest, input GetConnectProjectsInput) (*mcp.CallToolResult, rapididentity.GetConnectProjectsOutput, error) {
 	var err error
-	ctx, client, th, setupErr := ToolSetup(ctx, req, getConnectProjectToolName)
+	ctx, client, sh, setupErr := ToolSetup(ctx, req, getConnectProjectToolName)
 	if setupErr != nil {
 		return nil, rapididentity.GetConnectProjectsOutput{}, setupErr
 	}
 	start := time.Now()
 	defer telemetry.RecordCompletion(ctx, getConnectProjectToolName, start, &err)
 
-	th.Logger().Info(getConnectProjectToolName + " tool called")
+	sh.Logger().Info(getConnectProjectToolName + " tool called")
 
 	defer func(c *rapididentity.Client) {
 		if cerr := c.Close(); cerr != nil {
-			LogRIError(ctx, th, "unable to close connection to rapididentity", cerr)
+			LogRIError(ctx, sh, "unable to close connection to rapididentity", cerr)
 		}
 	}(client)
 
-	th.Logger().Info("Call Connect projects endpoint")
-	th.Notify().Info("Calling RapidIdentity Connect projects endpoint")
+	sh.Logger().Info("Call Connect projects endpoint")
 	result, err := client.GetConnectProjects(ctx)
 	if err != nil {
-		LogRIError(ctx, th, "unable to retrieve rapididentity connect projects", err)
+		LogRIError(ctx, sh, "unable to retrieve rapididentity connect projects", err)
 		return nil, rapididentity.GetConnectProjectsOutput{}, err
 	}
 
-	th.Logger().Debug("Response payload", "projects", result)
+	sh.Logger().Debug("Response payload", "projects", result)
 
-	th.Logger().Info("Retrieved Connect projects successfully", "projectTotal", len(result.Projects))
-	th.Notify().Info(fmt.Sprintf("Retrieved %d projects", len(result.Projects)))
+	sh.Logger().Info("Retrieved Connect projects successfully", "projectTotal", len(result.Projects))
 
 	return nil, *result, nil
 }
