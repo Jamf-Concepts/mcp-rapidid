@@ -11,6 +11,7 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/Jamf-Concepts/mcp-rapidid/internal/pkg/prompts"
 	"github.com/Jamf-Concepts/mcp-rapidid/internal/pkg/ri"
 	"github.com/Jamf-Concepts/mcp-rapidid/internal/pkg/rimcpctx"
 	"github.com/Jamf-Concepts/mcp-rapidid/internal/pkg/telemetry"
@@ -65,7 +66,7 @@ func main() {
 	ctx := rimcpctx.WithContext(context.Background(), rctx)
 
 	server := mcp.NewServer(&mcp.Implementation{Name: "mcp-rapidid", Title: "RapidID MCP Server", Version: version}, &mcp.ServerOptions{
-		Capabilities: &mcp.ServerCapabilities{Logging: &mcp.LoggingCapabilities{}, Tools: &mcp.ToolCapabilities{}},
+		Capabilities: &mcp.ServerCapabilities{Tools: &mcp.ToolCapabilities{}, Prompts: &mcp.PromptCapabilities{}},
 		Logger:       logger,
 		InitializedHandler: func(hCtx context.Context, req *mcp.InitializedRequest) {
 			clientName, clientVersion := ri.ClientInfoFromSession(req.Session)
@@ -95,6 +96,9 @@ func main() {
 	mcp.AddTool(server, &mcp.Tool{Name: "run-connect-action", Description: "Runs a RapidIdentity Connect action set and returns the HTML log", InputSchema: ri.RunConnectActionInputSchema}, ri.RunConnectAction)
 	mcp.AddTool(server, &mcp.Tool{Name: "get-connect-files", Description: "Returns metadata for files and directories within the RapidIdentity Connect files module"}, ri.GetConnectFiles)
 	mcp.AddTool(server, &mcp.Tool{Name: "get-connect-file-content", Description: "Returns the text content of a file from the RapidIdentity Connect files module, such as SharedGlobals.properties or Globals.properties"}, ri.GetConnectFileContent)
+
+	server.AddPrompt(prompts.PasswordResetAuditPromptDef(), prompts.PasswordResetAuditPromptHandler)
+
 	err = server.Run(ctx, &mcp.StdioTransport{})
 	if err != nil {
 		log.Fatal(err)
