@@ -73,31 +73,32 @@ the Tenant Admin role. See tools section for available tools.
 
 The "Service ID Compatible" column indicates whether a RapidID Service Identity can call the underlying API endpoint.
 
-| Tool | Description | Service ID Compatible |
-|------|-------------|----------------------|
-| `search-users` | Performs a simple user search — across the caller's delegations for username/password, or via the reporting endpoint for service identities | Yes |
-| `search-entitlements-for-user` | Performs a search of entitlements for the given user based on their idautoID | Yes |
-| `start-entitlement-request` | Initiates an entitlement request for a particular user and entitlement based on idautoID and resourceId respectively | Yes |
-| `get-my-delegations` | Gets delegations that are accessible to the authenticated user | Yes |
-| `get-user-info-in-delegation` | Does an advanced search of a RapidID delegation | No |
-| `search-groups` | Does a simple search of a RapidID group | Yes |
-| `get-group-members` | Gets group members for a specified RapidID group | Yes |
-| `get-user-activity-from-audit-log` | Returns audit log activity for a specific RapidID user over a given date range | Yes |
-| `get-connect-projects` | Returns all RapidID Connect projects | Yes |
-| `get-connect-actions` | Returns Connect action sets within a project, or across all projects | Yes |
-| `get-connect-action` | Returns a single RapidID Connect action set by ID | Yes |
-| `save-connect-action` | Saves (creates or updates) a RapidID Connect action set | Yes |
-| `delete-connect-action` | Deletes a RapidID Connect action set by ID | Yes |
-| `get-password-policies-for` | Retrieves the password policy for specified users | Yes |
-| `set-password` | Sets the RapidID password for one or more users via delegations | Yes |
-| `run-connect-action` | Runs a RapidID Connect action set and returns the HTML log | Yes |
-| `get-connect-files` | Returns metadata for files and directories within the RapidID Connect files module | Yes |
-| `get-connect-file-content` | Returns the text content of a file from the RapidID Connect files module | Yes |
+| Tool                               | Description                                                                                                                                 | Service ID Compatible |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| `search-users`                     | Performs a simple user search — across the caller's delegations for username/password, or via the reporting endpoint for service identities | Yes                   |
+| `search-entitlements-for-user`     | Performs a search of entitlements for the given user based on their idautoID                                                                | Yes                   |
+| `start-entitlement-request`        | Initiates an entitlement request for a particular user and entitlement based on idautoID and resourceId respectively                        | Yes                   |
+| `get-my-delegations`               | Gets delegations that are accessible to the authenticated user                                                                              | Yes                   |
+| `get-user-info-in-delegation`      | Does an advanced search of a RapidID delegation                                                                                             | No                    |
+| `search-groups`                    | Does a simple search of a RapidID group                                                                                                     | Yes                   |
+| `get-group-members`                | Gets group members for a specified RapidID group                                                                                            | Yes                   |
+| `get-user-activity-from-audit-log` | Returns audit log activity for a specific RapidID user over a given date range                                                              | Yes                   |
+| `get-connect-projects`             | Returns all RapidID Connect projects                                                                                                        | Yes                   |
+| `get-connect-actions`              | Returns Connect action sets within a project, or across all projects                                                                        | Yes                   |
+| `get-connect-action`               | Returns a single RapidID Connect action set by ID                                                                                           | Yes                   |
+| `save-connect-action`              | Saves (creates or updates) a RapidID Connect action set                                                                                     | Yes                   |
+| `delete-connect-action`            | Deletes a RapidID Connect action set by ID                                                                                                  | Yes                   |
+| `get-password-policies-for`        | Retrieves the password policy for specified users                                                                                           | Yes                   |
+| `set-password`                     | Sets the RapidID password for one or more users via delegations                                                                             | Yes                   |
+| `run-connect-action`               | Runs a RapidID Connect action set and returns the HTML log                                                                                  | Yes                   |
+| `get-connect-files`                | Returns metadata for files and directories within the RapidID Connect files module                                                          | Yes                   |
+| `get-connect-file-content`         | Returns the text content of a file from the RapidID Connect files module                                                                    | Yes                   |
 
-## Skills
+## Prompts
 
-- [RapidID Role Mining](./skills/rapididentity-role-mining/SKILL.md): Process for identifying dynamic filters for static RapidID groups.
-- [Connect Action Sets](./skills/connect-action-sets/SKILL.md): Knowledge on how to work with RapidID Connect action sets.
+| Prompt                 | Description                                                                                                                                                                                                                                                                                   | Tools Used                                                                      |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `password-reset-audit` | Finds all password resets for the specified user in the last 30 days and provides a table that includes the date the password was changed, who it was changed by, what delegation was used, whether it was successful, and whether the user was forced to change their password at next login | `search-users` `get-user-info-in-delegation` `get-user-activity-from-audit-log` |
 
 ## Troubleshooting
 
@@ -142,7 +143,6 @@ To opt in via the MCP config:
         "RI_USER": "kclarkson",
         "RI_PASSWORD": "notarealpassword123",
         "RI_LOG_LEVEL": "error"
-
       }
     }
   }
