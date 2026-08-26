@@ -27,20 +27,33 @@ type EntitlementForUserOutput struct {
 }
 
 type Resource struct {
-	Id                   string `json:"id" jsonschema:"The unique entitlement resource id"`
-	Name                 string `json:"name" jsonschema:"The friendly display name of the entitlement"`
-	Description          string `json:"description" jsonschema:"The description of the entitlement"`
-	Status               string `json:"status" jsonschema:"Whether the entitlement is requestable. The values will only be ACTIVE and INACTIVE"`
-	DisableCertification bool   `json:"disableCertification" jsonschema:"Whether or not the entitlement can be certified or not"`
-	NotUIRequestable     bool   `json:"notUIRequestable" jsonschema:"Whether or not the entitlement is requestable through the UI"`
-	CanRequestExtend     bool   `json:"canRequestExtend" jsonschema:"Whether or not the entitlement can be extended"`
-	CanRequestReset      bool   `json:"canRequestReset" jsonschema:"Whether or not the entitlement can be reset"`
+	Id                   string   `json:"id" jsonschema:"The unique entitlement resource id"`
+	Name                 string   `json:"name" jsonschema:"The friendly display name of the entitlement"`
+	Description          string   `json:"description" jsonschema:"The description of the entitlement"`
+	Status               string   `json:"status" jsonschema:"Whether the entitlement is requestable. The values will only be ACTIVE and INACTIVE"`
+	OwnerIds             []string `json:"ownerIds" jsonschema:"The list of user ids that own the entitlement"`
+	DisableCertification bool     `json:"disableCertification" jsonschema:"Whether or not the entitlement can be certified or not"`
+	NotUIRequestable     bool     `json:"notUIRequestable" jsonschema:"Whether or not the entitlement is requestable through the UI"`
+	CanRequestExtend     bool     `json:"canRequestExtend" jsonschema:"Whether or not the entitlement can be extended"`
+	CanRequestReset      bool     `json:"canRequestReset" jsonschema:"Whether or not the entitlement can be reset"`
 }
+
+type ApprovalHistoryEntry struct {
+	Type          string `json:"type" jsonschema:"The type of approval action, e.g. APPROVED"`
+	ResponderId   string `json:"responderId" jsonschema:"The unique id of the user who responded to the approval"`
+	ResponderName string `json:"responderName" jsonschema:"The display name of the user who responded to the approval"`
+	ResponseDate  string `json:"responseDate" jsonschema:"The date the approver responded"`
+	AssignedDate  string `json:"assignedDate" jsonschema:"The date the approval task was assigned"`
+}
+
 type ResourceAssociation struct {
-	UserId     string `json:"userId" jsonschema:"The unique rapididentity id. Also known as the idautoID"`
-	RequestId  string `json:"requestId" jsonschema:"The latest id of the request. This is often used to populate previousRequestId in additional rapididentity api calls"`
-	ResourceId string `json:"resourceId" jsonschema:"The unique entitlement resource id"`
-	Status     string `json:"status" jsonschema:"The user association status. This can be one of GRANTED, REVOKED, NO_ASSOCIATION"`
+	UserId             string                 `json:"userId" jsonschema:"The unique rapididentity id. Also known as the idautoID"`
+	RequestId          string                 `json:"requestId" jsonschema:"The latest id of the request. This is often used to populate previousRequestId in additional rapididentity api calls"`
+	ResourceId         string                 `json:"resourceId" jsonschema:"The unique entitlement resource id"`
+	Status             string                 `json:"status" jsonschema:"The user association status. This can be one of GRANTED, REVOKED, NO_ASSOCIATION"`
+	GrantDate          string                 `json:"workflowEndDate" jsonschema:"The date the entitlement was granted to the user"`
+	ExpirationDateTime string                 `json:"expirationDateTime" jsonschema:"The date and time when the entitlement expires"`
+	ApprovalHistory    []ApprovalHistoryEntry `json:"approvalHistory" jsonschema:"The list of approval actions taken on the entitlement grant"`
 }
 
 func GetEntitlementForUser(ctx context.Context, req *mcp.CallToolRequest, input EntitlementForUserInput) (*mcp.CallToolResult, EntitlementForUserOutput, error) {
