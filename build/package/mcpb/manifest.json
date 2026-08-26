@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "mcp-rapidid",
   "display_name": "RapidIdentity MCP Server",
-  "version": "v0.8.0",
+  "version": "v0.9.0",
   "description": "MCP server for RapidIdentity — search users, manage entitlements, query groups, read audit logs, and more via the RapidIdentity API.",
   "author": {
     "name": "Ramon Ramon",
@@ -103,6 +103,14 @@
     {
       "name": "get-connect-file-content",
       "description": "Returns the text content of a file from the RapidIdentity Connect files module, such as SharedGlobals.properties or Globals.properties"
+    }
+  ],
+  "prompts": [
+    {
+      "name": "password-reset-audit",
+      "description": "Finds all password resets for the specified user in the last 30 days and provides a table that includes the date the password was changed, who it was changed by, what delegation was used, whether it was successful, and whether the user was forced to change their password at next login",
+      "arguments": ["Username", "Timezone", "Delegation"],
+      "text": "Look up ${arguments.Username} in RapidIdentity and check their audit log for the last 30 days for any password reset events.\n\n\t1. Resolve the user with mcp-rapidid:search-users.\n\t2. Fetch their audit log using mcp-rapidid:get-user-activity-from-audit-log with LAST_30_DAYS\n\t3. Filter the events to an action displayName of \"Password Reset\", \"Self Password Update\", \"Change Password\", and \"Change Account Password\" \n\t4. For each reset, resolve the perpetrator's display name, if present:\n\t\ta. Try mcp-rapidid:search-users with the perpetratorId UUID.\n        b. If that returns empty, call mcp-rapidid:get-user-info-in-delegation with ${arguments.Delegation} with LDAP filter (idautoID=<perpetratorId>)\n\t\tb. If ${arguments.Delegation} is empty, call mcp-rapidid:get-my-delegations, if you haven't already, to retrieve the available delegations and show these to the user asking \"What delegation shoud I use to do the look up of the perpetrator\", then use mcp-rapidid:get-user-info-in-delegation with LDAP filter (idautoID=<perpetratorId>) on the user selected delegation. if the user can still not be found simply use the UUID for the Change By column.\n\t5. The delegation used for the reset is in extendedProperties where key=delegationName.\n\t6. Whether the user must update their password on next login is in extendedProperties where key=mustUpdate.\n\nIf ${arguments.Username} is not provided, ask: \"What is the full name or username of the user you would like to look up?\" before proceeding. All timestamps must be in ${arguments.Timezone} if provided, otherwise use the user's local timezone.\n\nOutput ONLY the table — no other text — with columns: Timestamp, User, Changed By, Delegation Used, Successful, Must Update on Next Login.\nSort the table by timestamp from most recent to least recent."
     }
   ],
   "user_config": {
