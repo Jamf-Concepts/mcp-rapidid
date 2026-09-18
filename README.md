@@ -100,6 +100,12 @@ The "Service ID Compatible" column indicates whether a RapidID Service Identity 
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
 | `password-reset-audit` | Finds all password resets for the specified user in the last 30 days and provides a table that includes the date the password was changed, who it was changed by, what delegation was used, whether it was successful, and whether the user was forced to change their password at next login | `search-users` `get-user-info-in-delegation` `get-user-activity-from-audit-log` |
 
+## Plugins and Skills
+
+These are plugins and skills that can be used in conjuction with the RapidID MCP Server to provide additional knowledge.
+
+- [Connect Action Sets](https://github.com/Jamf-Concepts/agent-skills/tree/main/plugins/connect-action-sets): A comprehensive guide for authoring, reviewing, and refactoring RapidIdentity Connect action sets. Covers conventions, coding standards, logging patterns, JavaScript semantics, and platform best practices for building identity workflows.
+
 ## Troubleshooting
 
 - On authentication failures ensure RI_HOST, RI_USER / RI_PASSWORD, or RI_SERVICE_IDENTITY_SECRET_KEY are set correctly
