@@ -1,5 +1,5 @@
 ---
-name: mcp-rapidid
+name: local-llm-steering
 description: How to use the mcp-rapidid MCP tools to work with a RapidIdentity (RapidID) tenant — looking up users, profiles, groups, and group members; reviewing a user's entitlements and access requests; submitting GRANT or REVOKE entitlement requests; checking audit-log activity; reading password policies and resetting passwords; and inspecting, running, or editing RapidIdentity Connect projects, action sets, and files. Use this skill whenever the user mentions RapidIdentity, RapidID, mcp-rapidid, an idautoID, entitlements, access requests, approvers, delegations, Connect action sets, or asks to find, look up, or "tell me about" a person in the identity system — even if they don't name the tool. Also use it for separation-of-duties or self-approval checks, "who has access to X", "who approves X", and "what did this user do" questions.
 compatibility: Requires the mcp-rapidid MCP server (18 tools). Uses no other identity tools.
 ---
