@@ -103,7 +103,7 @@ func SearchRapidIdentityUsers(ctx context.Context, req *mcp.CallToolRequest, inp
 	// Service Identities do not return results through the delegation-scoped
 	// users search, so search via the reporting endpoint instead. Username and
 	// password callers continue to use the delegation-based path below.
-	if UsingServiceIdentity() {
+	if mode, _ := AuthModeForTool(searchRapidIdentityUsersToolName); mode == AuthModeServiceIdentity {
 		return searchUsersViaReporting(ctx, sh, client, input)
 	}
 

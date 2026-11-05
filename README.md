@@ -53,6 +53,13 @@ it completely to opt out of providing usage data. Keep in mind that
 Service Identities do not have access to all tools even with
 the Tenant Admin role. See tools section for available tools.
 
+You can configure both a Service Identity and a username/password.
+The Service Identity is used for every tool that supports it, and
+tools that do not support Service Identities automatically fall back
+to the username/password session. If only a Service Identity is
+configured, those tools return an error explaining that
+username/password credentials are required.
+
 ```json
 {
   "mcpServers": {
@@ -78,7 +85,7 @@ These are plugins and skills that can be used in conjuction with the RapidID MCP
 
 ## Tools
 
-The "Service ID Compatible" column indicates whether a RapidID Service Identity can call the underlying API endpoint.
+The "Service ID Compatible" column indicates whether a RapidID Service Identity can call the underlying API endpoint. Tools marked "No" use username/password credentials when they are also configured.
 
 | Tool                               | Description                                                                                                                                 | Service ID Compatible |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
