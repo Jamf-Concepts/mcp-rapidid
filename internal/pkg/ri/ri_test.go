@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -163,5 +164,113 @@ func TestToolSetup(t *testing.T) {
 				t.Fatalf("error %q does not contain %q", err.Error(), tt.errContains)
 			}
 		})
+	}
+}
+
+func TestAuthModeForTool(t *testing.T) {
+	const supportedTool = "get-connect-projects"
+	const unsupportedTool = getUserInfoInDelegationToolName
+
+	tests := []struct {
+		name        string
+		sid         string
+		user        string
+		tool        string
+		wantMode    AuthMode
+		wantErrType bool
+	}{
+		{name: "sid only, supported tool", sid: "key", tool: supportedTool, wantMode: AuthModeServiceIdentity},
+		{name: "sid only, unsupported tool", sid: "key", tool: unsupportedTool, wantErrType: true},
+		{name: "user only, supported tool", user: "u", tool: supportedTool, wantMode: AuthModeUserPassword},
+		{name: "user only, unsupported tool", user: "u", tool: unsupportedTool, wantMode: AuthModeUserPassword},
+		{name: "both, supported tool prefers sid", sid: "key", user: "u", tool: supportedTool, wantMode: AuthModeServiceIdentity},
+		{name: "both, unsupported tool falls back to user", sid: "key", user: "u", tool: unsupportedTool, wantMode: AuthModeUserPassword},
+		{name: "nothing configured attempts user", tool: supportedTool, wantMode: AuthModeUserPassword},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("RI_SERVICE_IDENTITY_SECRET_KEY", tt.sid)
+			t.Setenv("RI_USER", tt.user)
+
+			mode, err := AuthModeForTool(tt.tool)
+			if tt.wantErrType {
+				var unsupported ServiceIdentityUnsupportedError
+				if !errors.As(err, &unsupported) {
+					t.Fatalf("expected ServiceIdentityUnsupportedError, got %v", err)
+				}
+				if unsupported.ToolName != tt.tool {
+					t.Fatalf("error tool name = %q, want %q", unsupported.ToolName, tt.tool)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if mode != tt.wantMode {
+				t.Fatalf("mode = %q, want %q", mode, tt.wantMode)
+			}
+		})
+	}
+}
+
+func TestUnsupportedToolFallsBackToUserSession(t *testing.T) {
+	mux := setup(t)
+	t.Setenv("RI_SERVICE_IDENTITY_SECRET_KEY", "svc-secret")
+
+	var gotAuth string
+	mux.HandleFunc(baseUrlPath+"/profiles/delegations/my/deleg-123/profiles/searchByFilter", func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"adminLimitEnforced":false,"profiles":[]}`))
+	})
+
+	_, _, err := GetUserInfoInDelegation(context.Background(), newReq(), UserInfoInDelegationInput{DelegationId: "deleg-123", Filter: "(uid=*)"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// "abcd" is the session token issued by the mock /sessions endpoint.
+	if gotAuth != "Bearer abcd" {
+		t.Fatalf("expected user session token, got Authorization %q", gotAuth)
+	}
+}
+
+func TestUnsupportedToolWithOnlyServiceIdentityErrors(t *testing.T) {
+	mux := setup(t)
+	t.Setenv("RI_USER", "")
+	t.Setenv("RI_PASSWORD", "")
+	t.Setenv("RI_SERVICE_IDENTITY_SECRET_KEY", "svc-secret")
+
+	called := false
+	mux.HandleFunc(baseUrlPath+"/profiles/delegations/my/deleg-123/profiles/searchByFilter", func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"adminLimitEnforced":false,"profiles":[]}`))
+	})
+
+	_, _, err := GetUserInfoInDelegation(context.Background(), newReq(), UserInfoInDelegationInput{DelegationId: "deleg-123", Filter: "(uid=*)"})
+	var unsupported ServiceIdentityUnsupportedError
+	if !errors.As(err, &unsupported) {
+		t.Fatalf("expected ServiceIdentityUnsupportedError, got %v", err)
+	}
+	if called {
+		t.Fatal("endpoint should not be called when no supported credentials are configured")
+	}
+}
+
+func TestSupportedToolPrefersServiceIdentity(t *testing.T) {
+	mux := setup(t)
+	t.Setenv("RI_SERVICE_IDENTITY_SECRET_KEY", "svc-secret")
+
+	var gotAuth string
+	mux.HandleFunc(baseUrlPath+"/admin/connect/projects", func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`[]`))
+	})
+
+	_, _, _ = GetConnectProjects(context.Background(), newReq(), GetConnectProjectsInput{})
+	if gotAuth != "Bearer svc-secret" {
+		t.Fatalf("expected service identity token, got Authorization %q", gotAuth)
 	}
 }
