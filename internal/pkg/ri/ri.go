@@ -18,68 +18,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// AuthMode identifies which kind of RapidIdentity session a tool call uses.
-type AuthMode string
-
-const (
-	AuthModeServiceIdentity AuthMode = "service-identity"
-	AuthModeUserPassword    AuthMode = "user-password"
-)
-
-// serviceIdentityUnsupportedTools lists tools whose underlying RapidIdentity
-// endpoints do not work with a Service Identity. Only add a tool here once it
-// has been verified against a live tenant: unsupported endpoints frequently
-// answer a Service Identity with HTTP 200 and an empty body rather than a
-// 401/403, so the failure cannot be detected from the response.
-var serviceIdentityUnsupportedTools = map[string]bool{
-	getUserInfoInDelegationToolName: true,
-}
-
-// ToolSupportsServiceIdentity reports whether the named tool can be called with
-// a Service Identity session.
-func ToolSupportsServiceIdentity(toolName string) bool {
-	return !serviceIdentityUnsupportedTools[toolName]
-}
-
-// ServiceIdentityUnsupportedError is returned when only a Service Identity is
-// configured and the requested tool cannot be used with one.
-type ServiceIdentityUnsupportedError struct {
-	ToolName string
-}
-
-func (e ServiceIdentityUnsupportedError) Error() string {
-	return fmt.Sprintf("the %s tool is not supported with a RapidIdentity Service Identity; configure RI_USER and RI_PASSWORD to use it", e.ToolName)
-}
-
-func serviceIdentityConfigured() bool {
-	return os.Getenv("RI_SERVICE_IDENTITY_SECRET_KEY") != ""
-}
-
-func userCredentialsConfigured() bool {
-	return os.Getenv("RI_USER") != ""
-}
-
-// AuthModeForTool selects the session type for a tool call. A Service Identity
-// is preferred when the tool supports it; otherwise username/password is used
-// when configured. If only a Service Identity is configured and the tool does
-// not support it, a ServiceIdentityUnsupportedError is returned.
-func AuthModeForTool(toolName string) (AuthMode, error) {
-	sid := serviceIdentityConfigured()
-	switch {
-	case sid && ToolSupportsServiceIdentity(toolName):
-		return AuthModeServiceIdentity, nil
-	case userCredentialsConfigured():
-		return AuthModeUserPassword, nil
-	case sid:
-		return "", ServiceIdentityUnsupportedError{ToolName: toolName}
-	default:
-		// Nothing usable is configured; attempt username/password so the
-		// resulting authentication failure is surfaced to the caller.
-		return AuthModeUserPassword, nil
-	}
-}
-
-func baseRapidIdentityOptions() rapididentity.Options {
+func GetRapidIdentityOptions() rapididentity.Options {
 	host := os.Getenv("RI_HOST")
 	scheme := "https"
 	if strings.HasPrefix(host, "http://") {
@@ -88,42 +27,40 @@ func baseRapidIdentityOptions() rapididentity.Options {
 	host = strings.TrimPrefix(host, "https://")
 	host = strings.TrimPrefix(host, "http://")
 
-	return rapididentity.Options{
+	options := rapididentity.Options{
 		HTTPClient: &http.Client{},
 		BaseUrl:    &url.URL{Scheme: scheme, Host: host},
 	}
-}
 
-func rapidIdentityOptionsFor(mode AuthMode) rapididentity.Options {
-	options := baseRapidIdentityOptions()
-	if mode == AuthModeServiceIdentity {
-		options.ServiceIdentity = os.Getenv("RI_SERVICE_IDENTITY_SECRET_KEY")
-	} else {
+	serviceIdentitySecretKey := os.Getenv("RI_SERVICE_IDENTITY_SECRET_KEY")
+
+	if serviceIdentitySecretKey == "" {
 		options.RapidIdentityUser = &rapididentity.RapidIdentityUser{
 			Username: os.Getenv("RI_USER"),
 			Password: os.Getenv("RI_PASSWORD"),
 		}
+	} else {
+		options.ServiceIdentity = serviceIdentitySecretKey
 	}
+
 	return options
 }
 
-// GetRapidIdentityOptions returns client options without regard to a specific
-// tool. A Service Identity takes precedence over username/password.
-func GetRapidIdentityOptions() rapididentity.Options {
-	if serviceIdentityConfigured() {
-		return rapidIdentityOptionsFor(AuthModeServiceIdentity)
-	}
-	return rapidIdentityOptionsFor(AuthModeUserPassword)
+// UsingServiceIdentity reports whether the server is configured to authenticate
+// with a Service Identity. A Service Identity takes precedence over
+// username/password, mirroring the selection made in GetRapidIdentityOptions.
+func UsingServiceIdentity() bool {
+	return os.Getenv("RI_SERVICE_IDENTITY_SECRET_KEY") != ""
 }
 
-// GetRapidIdentityOptionsForTool returns client options for the session type
-// selected by AuthModeForTool.
-func GetRapidIdentityOptionsForTool(toolName string) (rapididentity.Options, AuthMode, error) {
-	mode, err := AuthModeForTool(toolName)
-	if err != nil {
-		return rapididentity.Options{}, "", err
+// requiresUserPassword reports whether toolName must use username/password auth
+// because its underlying RapidIdentity endpoint does not support Service Identities.
+func requiresUserPassword(toolName string) bool {
+	switch toolName {
+	case getUserInfoInDelegationToolName, getMyDelegationsToolName:
+		return true
 	}
-	return rapidIdentityOptionsFor(mode), mode, nil
+	return false
 }
 
 type licenseInfo struct {
@@ -185,19 +122,24 @@ func ToolSetup(ctx context.Context, req *mcp.CallToolRequest, toolName string) (
 	ctx = telemetry.WithSession(ctx, req.Session.ID(), clientName, clientVersion)
 
 	sh := helper.NewToolServerHelper(req, toolName)
-	options, mode, err := GetRapidIdentityOptionsForTool(toolName)
-	if err != nil {
-		LogRIError(ctx, sh, "no supported credentials configured for tool", err)
-		return ctx, nil, nil, err
+	options := GetRapidIdentityOptions()
+	if requiresUserPassword(toolName) {
+		if os.Getenv("RI_USER") == "" {
+			err := fmt.Errorf("the %s tool does not support RapidIdentity Service Identities; configure RI_USER and RI_PASSWORD to use it", toolName)
+			LogRIError(ctx, sh, "username/password credentials required for tool", err)
+			return ctx, nil, nil, err
+		}
+		options.ServiceIdentity = ""
+		options.RapidIdentityUser = &rapididentity.RapidIdentityUser{
+			Username: os.Getenv("RI_USER"),
+			Password: os.Getenv("RI_PASSWORD"),
+		}
 	}
 
-	if mode == AuthModeServiceIdentity {
-		sh.Logger().Debug(fmt.Sprintf("connecting to %s with a service identity with key length %d", options.BaseUrl, len(options.ServiceIdentity)))
-	} else {
-		if serviceIdentityConfigured() {
-			sh.Logger().Debug("tool does not support service identities; falling back to username/password")
-		}
+	if options.RapidIdentityUser != nil && options.RapidIdentityUser.Username != "" {
 		sh.Logger().Debug(fmt.Sprintf("connecting to %s with user %s with a password of length %d", options.BaseUrl, options.RapidIdentityUser.Username, len(options.RapidIdentityUser.Password)))
+	} else {
+		sh.Logger().Debug(fmt.Sprintf("connecting to %s with a service identity with key length %d", options.BaseUrl, len(options.ServiceIdentity)))
 	}
 
 	client, err := rapididentity.New(options)

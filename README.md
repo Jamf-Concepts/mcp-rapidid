@@ -92,7 +92,7 @@ The "Service ID Compatible" column indicates whether a RapidID Service Identity 
 | `search-users`                     | Performs a simple user search — across the caller's delegations for username/password, or via the reporting endpoint for service identities | Yes                   |
 | `search-entitlements-for-user`     | Performs a search of entitlements for the given user based on their idautoID                                                                | Yes                   |
 | `start-entitlement-request`        | Initiates an entitlement request for a particular user and entitlement based on idautoID and resourceId respectively                        | Yes                   |
-| `get-my-delegations`               | Gets delegations that are accessible to the authenticated user                                                                              | Yes                   |
+| `get-my-delegations`               | Gets delegations that are accessible to the authenticated user                                                                              | No                    |
 | `get-user-info-in-delegation`      | Does an advanced search of a RapidID delegation                                                                                             | No                    |
 | `search-groups`                    | Does a simple search of a RapidID group                                                                                                     | Yes                   |
 | `get-group-members`                | Gets group members for a specified RapidID group                                                                                            | Yes                   |
