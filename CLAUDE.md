@@ -28,7 +28,7 @@ go test ./...
 - `GetEntitlementsForUser.go` — retrieve entitlements and resource associations for a user
 - `StartEntitlementRequest.go` — initiate GRANT/REVOKE entitlement requests
 
-**Client config:** `internal/pkg/ri/ri.go` — `GetRapidIdentityOptions()` reads environment variables and returns authenticated client options. Service identity auth takes precedence over username/password.
+**Client config:** `internal/pkg/ri/ri.go` — `GetRapidIdentityOptions()` reads environment variables and returns authenticated client options. A Service Identity is preferred, but tools listed in `requiresUserPassword()` always use username/password (`ToolSetup` returns an error if `RI_USER` is not set).
 
 **Key dependencies:**
 - `github.com/modelcontextprotocol/go-sdk` — MCP protocol

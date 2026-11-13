@@ -131,14 +131,14 @@
     "ri_user": {
       "type": "string",
       "title": "Username",
-      "description": "RapidIdentity username for user/password authentication. Leave blank when using a service identity.",
+      "description": "RapidIdentity username for user/password authentication. May be set alongside a service identity so tools that do not support service identities fall back to it.",
       "required": false,
       "default": ""
     },
     "ri_password": {
       "type": "string",
       "title": "Password",
-      "description": "RapidIdentity password for user/password authentication. Leave blank when using a service identity.",
+      "description": "RapidIdentity password for user/password authentication. May be set alongside a service identity so tools that do not support service identities fall back to it.",
       "sensitive": true,
       "required": false,
       "default": ""
@@ -146,7 +146,7 @@
     "ri_service_identity_secret_key": {
       "type": "string",
       "title": "Service Identity Secret Key",
-      "description": "Service identity secret key. Takes precedence over username/password when set.",
+      "description": "Service identity secret key. Preferred over username/password for every tool that supports service identities.",
       "sensitive": true,
       "required": false,
       "default": ""

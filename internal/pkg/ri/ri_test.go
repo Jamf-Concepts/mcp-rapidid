@@ -165,3 +165,103 @@ func TestToolSetup(t *testing.T) {
 		})
 	}
 }
+
+func TestRequiresUserPassword(t *testing.T) {
+	for _, tool := range []string{getUserInfoInDelegationToolName, getMyDelegationsToolName} {
+		if !requiresUserPassword(tool) {
+			t.Errorf("requiresUserPassword(%q) = false, want true", tool)
+		}
+	}
+	if requiresUserPassword("get-connect-projects") {
+		t.Error(`requiresUserPassword("get-connect-projects") = true, want false`)
+	}
+}
+
+func TestUserPasswordToolsIgnoreServiceIdentity(t *testing.T) {
+	tests := []struct {
+		name string
+		path string
+		call func() error
+	}{
+		{
+			name: getUserInfoInDelegationToolName,
+			path: "/profiles/delegations/my/deleg-123/profiles/searchByFilter",
+			call: func() error {
+				_, _, err := GetUserInfoInDelegation(context.Background(), newReq(), UserInfoInDelegationInput{DelegationId: "deleg-123", Filter: "(uid=*)"})
+				return err
+			},
+		},
+		{
+			name: getMyDelegationsToolName,
+			path: "/profiles/delegations/my",
+			call: func() error {
+				_, _, err := GetMyDelegations(context.Background(), newReq(), GetMyDelegationsInput{})
+				return err
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name+" falls back to user session", func(t *testing.T) {
+			mux := setup(t)
+			t.Setenv("RI_SERVICE_IDENTITY_SECRET_KEY", "svc-secret")
+
+			var gotAuth string
+			mux.HandleFunc(baseUrlPath+tt.path, func(w http.ResponseWriter, r *http.Request) {
+				gotAuth = r.Header.Get("Authorization")
+				w.WriteHeader(http.StatusOK)
+				if tt.name == getMyDelegationsToolName {
+					w.Write([]byte(`[]`))
+					return
+				}
+				w.Write([]byte(`{"adminLimitEnforced":false,"profiles":[]}`))
+			})
+
+			if err := tt.call(); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			// "abcd" is the session token issued by the mock /sessions endpoint.
+			if gotAuth != "Bearer abcd" {
+				t.Fatalf("expected user session token, got Authorization %q", gotAuth)
+			}
+		})
+
+		t.Run(tt.name+" errors with only a service identity", func(t *testing.T) {
+			mux := setup(t)
+			t.Setenv("RI_USER", "")
+			t.Setenv("RI_PASSWORD", "")
+			t.Setenv("RI_SERVICE_IDENTITY_SECRET_KEY", "svc-secret")
+
+			called := false
+			mux.HandleFunc(baseUrlPath+tt.path, func(w http.ResponseWriter, r *http.Request) {
+				called = true
+				w.WriteHeader(http.StatusOK)
+			})
+
+			err := tt.call()
+			if err == nil || !strings.Contains(err.Error(), "RI_USER") {
+				t.Fatalf("expected an error asking for RI_USER, got %v", err)
+			}
+			if called {
+				t.Fatal("endpoint should not be called without username/password credentials")
+			}
+		})
+	}
+}
+
+func TestSupportedToolPrefersServiceIdentity(t *testing.T) {
+	mux := setup(t)
+	t.Setenv("RI_SERVICE_IDENTITY_SECRET_KEY", "svc-secret")
+
+	var gotAuth string
+	mux.HandleFunc(baseUrlPath+"/admin/connect/projects", func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`[]`))
+	})
+
+	_, _, _ = GetConnectProjects(context.Background(), newReq(), GetConnectProjectsInput{})
+	if gotAuth != "Bearer svc-secret" {
+		t.Fatalf("expected service identity token, got Authorization %q", gotAuth)
+	}
+}

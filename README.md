@@ -53,6 +53,13 @@ it completely to opt out of providing usage data. Keep in mind that
 Service Identities do not have access to all tools even with
 the Tenant Admin role. See tools section for available tools.
 
+You can configure both a Service Identity and a username/password.
+The Service Identity is used for every tool that supports it, and
+tools that do not support Service Identities automatically fall back
+to the username/password session. If only a Service Identity is
+configured, those tools return an error explaining that
+username/password credentials are required.
+
 ```json
 {
   "mcpServers": {
@@ -78,14 +85,14 @@ These are plugins and skills that can be used in conjuction with the RapidID MCP
 
 ## Tools
 
-The "Service ID Compatible" column indicates whether a RapidID Service Identity can call the underlying API endpoint.
+The "Service ID Compatible" column indicates whether a RapidID Service Identity can call the underlying API endpoint. Tools marked "No" use username/password credentials when they are also configured.
 
 | Tool                               | Description                                                                                                                                 | Service ID Compatible |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
 | `search-users`                     | Performs a simple user search — across the caller's delegations for username/password, or via the reporting endpoint for service identities | Yes                   |
 | `search-entitlements-for-user`     | Performs a search of entitlements for the given user based on their idautoID                                                                | Yes                   |
 | `start-entitlement-request`        | Initiates an entitlement request for a particular user and entitlement based on idautoID and resourceId respectively                        | Yes                   |
-| `get-my-delegations`               | Gets delegations that are accessible to the authenticated user                                                                              | Yes                   |
+| `get-my-delegations`               | Gets delegations that are accessible to the authenticated user                                                                              | No                    |
 | `get-user-info-in-delegation`      | Does an advanced search of a RapidID delegation                                                                                             | No                    |
 | `search-groups`                    | Does a simple search of a RapidID group                                                                                                     | Yes                   |
 | `get-group-members`                | Gets group members for a specified RapidID group                                                                                            | Yes                   |

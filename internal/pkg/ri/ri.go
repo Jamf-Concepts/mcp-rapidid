@@ -53,6 +53,16 @@ func UsingServiceIdentity() bool {
 	return os.Getenv("RI_SERVICE_IDENTITY_SECRET_KEY") != ""
 }
 
+// requiresUserPassword reports whether toolName must use username/password auth
+// because its underlying RapidIdentity endpoint does not support Service Identities.
+func requiresUserPassword(toolName string) bool {
+	switch toolName {
+	case getUserInfoInDelegationToolName, getMyDelegationsToolName:
+		return true
+	}
+	return false
+}
+
 type licenseInfo struct {
 	LicenseeId string `json:"licenseeId"`
 }
@@ -113,6 +123,18 @@ func ToolSetup(ctx context.Context, req *mcp.CallToolRequest, toolName string) (
 
 	sh := helper.NewToolServerHelper(req, toolName)
 	options := GetRapidIdentityOptions()
+	if requiresUserPassword(toolName) {
+		if os.Getenv("RI_USER") == "" {
+			err := fmt.Errorf("the %s tool does not support RapidIdentity Service Identities; configure RI_USER and RI_PASSWORD to use it", toolName)
+			LogRIError(ctx, sh, "username/password credentials required for tool", err)
+			return ctx, nil, nil, err
+		}
+		options.ServiceIdentity = ""
+		options.RapidIdentityUser = &rapididentity.RapidIdentityUser{
+			Username: os.Getenv("RI_USER"),
+			Password: os.Getenv("RI_PASSWORD"),
+		}
+	}
 
 	if options.RapidIdentityUser != nil && options.RapidIdentityUser.Username != "" {
 		sh.Logger().Debug(fmt.Sprintf("connecting to %s with user %s with a password of length %d", options.BaseUrl, options.RapidIdentityUser.Username, len(options.RapidIdentityUser.Password)))
