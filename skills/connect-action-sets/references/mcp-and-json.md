@@ -4,7 +4,7 @@ Read this when working against a live Connect instance via the `RapidIdentity MC
 tools, or when converting action sets between XML (file mode) and JSON (API model).
 
 ## Contents
-- MCP Workflow — read/explore, design, push, delete
+- MCP Workflow — read/explore, design, push, delete, projects (create / update / delete)
 - JSON Object Model — file JSON vs API JSON, argDef/action/arg shapes
 - XML ↔ JSON Conversion — field-by-field mapping in both directions
 
@@ -79,6 +79,34 @@ from this skill when designing the structure.
 
 - Use `delete-connect-action(id)`
 - **Always confirm with the user before executing** — deletion is irreversible
+
+### Projects (create / update / delete)
+
+- `create-connect-project(name, adminGroupDN?, operatorGroupDN?, auditorGroupDN?)` creates a
+  project. It **fails if a project with that name already exists** (names are compared ignoring
+  case). Do not try to get around this: the underlying API would replace the existing project and
+  wipe its description, groups and REST points. Pick another name, or use
+  `update-connect-project` if the user meant to change the existing one.
+- `update-connect-project(name, description?, adminGroupDN?, operatorGroupDN?, auditorGroupDN?)`
+  changes an existing project. It **fails if no project has that name** and refuses a call that
+  changes nothing.
+  - `name` identifies the project; it is the project's key. **Projects cannot be renamed** with
+    this tool.
+  - A field you leave out keeps its current value. An empty string (`""`) clears it, which is
+    also how Connect stores "no group" for a role. To remove the operator role:
+    `update-connect-project(name: "My Project", operatorGroupDN: "")`.
+  - Everything else on the project (its id, REST points, the roles you did not pass) is kept.
+  - Confirm the project and the change with the user before updating: it changes a live project.
+- `delete-connect-project(name)` deletes a project and **fails if no project has that name**.
+  **Always confirm with the user before executing** — deletion is irreversible.
+- **Group DNs are full LDAP DNs and the tools do not look them up.** Get the group's `dn` with
+  `search-groups` first. A typical DN looks like `idautoID=<group idautoID>,ou=Groups,dc=meta`,
+  but use the `dn` the tenant returns rather than building one.
+- **Group names are display-only.** `adminGroupName`, `operatorGroupName` and
+  `auditorGroupName` are not set by these tools, and after a save through the API they can read
+  back `null` even though the DN is set. That is not a failure: check the `*GroupDN` fields to
+  confirm a change.
+- Refer to projects by name, not id: a project's id can change when it is saved by other means.
 
 ---
 

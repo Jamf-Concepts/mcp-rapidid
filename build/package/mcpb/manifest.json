@@ -69,6 +69,18 @@
       "description": "Returns all RapidIdentity Connect projects"
     },
     {
+      "name": "create-connect-project",
+      "description": "Creates a new RapidIdentity Connect project with the given name and, optionally, admin, operator and auditor group DNs. Fails if a project with that name already exists"
+    },
+    {
+      "name": "update-connect-project",
+      "description": "Updates the description and admin, operator and auditor group DNs of an existing RapidIdentity Connect project. Fields left out keep their current values. Fails if no project has that name"
+    },
+    {
+      "name": "delete-connect-project",
+      "description": "Deletes a RapidIdentity Connect project by name. This cannot be undone. Fails if no project has that name"
+    },
+    {
       "name": "get-connect-actions",
       "description": "Returns Connect action sets within a project, or across all projects"
     },
