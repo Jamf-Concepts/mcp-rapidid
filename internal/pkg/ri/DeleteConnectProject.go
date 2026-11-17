@@ -6,6 +6,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -32,6 +34,11 @@ type DeleteConnectProjectOutput struct {
 // returned as an error, so the project is never reported deleted when it
 // was not.
 func DeleteConnectProject(ctx context.Context, req *mcp.CallToolRequest, input DeleteConnectProjectInput) (*mcp.CallToolResult, DeleteConnectProjectOutput, error) {
+	name := strings.TrimSpace(input.Name)
+	if name == "" {
+		return nil, DeleteConnectProjectOutput{}, fmt.Errorf("a project name is required")
+	}
+
 	var err error
 	ctx, client, sh, setupErr := ToolSetup(ctx, req, deleteConnectProjectToolName)
 	if setupErr != nil {
@@ -40,20 +47,13 @@ func DeleteConnectProject(ctx context.Context, req *mcp.CallToolRequest, input D
 	start := time.Now()
 	defer telemetry.RecordCompletion(ctx, deleteConnectProjectToolName, start, &err)
 
-	sh.Logger().Info(deleteConnectProjectToolName+" tool called", "name", input.Name)
+	sh.Logger().Info(deleteConnectProjectToolName+" tool called", "name", name)
 
 	defer func(c *rapididentity.Client) {
 		if err := c.Close(); err != nil {
 			LogRIError(ctx, sh, "unable to close rapididentity client", err)
 		}
 	}(client)
-
-	name := strings.TrimSpace(input.Name)
-	if name == "" {
-		err = fmt.Errorf("a project name is required")
-		LogRIError(ctx, sh, "unable to delete Connect project", err)
-		return nil, DeleteConnectProjectOutput{}, err
-	}
 
 	existingName, err := findConnectProjectName(ctx, client, sh, name)
 	if err != nil {
@@ -74,8 +74,21 @@ func DeleteConnectProject(ctx context.Context, req *mcp.CallToolRequest, input D
 		return nil, DeleteConnectProjectOutput{}, err
 	}
 
-	deleteBody, err := readConnectProjectResponse(ctx, sh, deleteConnectProjectToolName, deleteRes)
+	defer func(res *http.Response) {
+		if err := res.Body.Close(); err != nil {
+			sh.Logger().Warn("issue closing response body for "+path+" endpoint response", "error", err)
+		}
+	}(deleteRes)
+
+	if err = checkResponseStatus(deleteRes); err != nil {
+		LogRIError(ctx, sh, "unable to delete Connect project", err)
+		return nil, DeleteConnectProjectOutput{}, err
+	}
+
+	deleteBody, err := io.ReadAll(deleteRes.Body)
 	if err != nil {
+		sh.Logger().Error("unable to read response body for DELETE "+path+" response", "error", err, "status", deleteRes.StatusCode)
+		telemetry.RecordError(ctx, fmt.Sprintf(telemetry.EventPrefix+telemetry.ToolErrorPrefix+"%s", deleteConnectProjectToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, DeleteConnectProjectOutput{}, err
 	}
 

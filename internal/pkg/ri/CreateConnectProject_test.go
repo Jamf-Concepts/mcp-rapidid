@@ -10,8 +10,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-
-	"github.com/hatch-ed-com/ri-sdk-go/pkg/rapididentity"
 )
 
 const existingProjectsBody = `{"projects":[{"name":"Existing Project","id":"existing-id"}]}`
@@ -28,7 +26,7 @@ func TestCreateConnectProject(t *testing.T) {
 		wantErr      bool
 		errContains  string
 		wantPost     bool
-		assertOutput func(t *testing.T, output rapididentity.ConnectProject)
+		assertOutput func(t *testing.T, output ConnectProject)
 	}{
 		{
 			name:       "success",
@@ -37,7 +35,7 @@ func TestCreateConnectProject(t *testing.T) {
 			postStatus: http.StatusOK,
 			postBody:   `{"name":"New Project","id":"new-id"}`,
 			wantPost:   true,
-			assertOutput: func(t *testing.T, output rapididentity.ConnectProject) {
+			assertOutput: func(t *testing.T, output ConnectProject) {
 				if output.Name != "New Project" || output.Id != "new-id" {
 					t.Fatalf("expected New Project/new-id, got %q/%q", output.Name, output.Id)
 				}
