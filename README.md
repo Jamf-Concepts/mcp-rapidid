@@ -108,6 +108,12 @@ The "Service ID Compatible" column indicates whether a RapidID Service Identity 
 | `get-password-policies-for`        | Retrieves the password policy for specified users                                                                                           | Yes                   |
 | `set-password`                     | Sets the RapidID password for one or more users via delegations                                                                             | Yes                   |
 | `run-connect-action`               | Runs a RapidID Connect action set and returns the HTML log                                                                                  | Yes                   |
+| `get-connect-jobs`                 | Returns RapidID Connect scheduled jobs, optionally filtered by project                                                                      | Yes                   |
+| `get-connect-job`                  | Returns a single RapidID Connect scheduled job by name                                                                                      | Yes                   |
+| `create-connect-job`               | Creates a RapidID Connect scheduled job, disabled unless told otherwise                                                                     | Yes                   |
+| `update-connect-job`               | Updates an existing RapidID Connect scheduled job                                                                                           | Yes                   |
+| `run-connect-job`                  | Runs a RapidID Connect scheduled job now, exactly as configured                                                                             | Yes                   |
+| `delete-connect-job`               | Deletes a RapidID Connect scheduled job by name                                                                                             | Yes                   |
 | `get-connect-files`                | Returns metadata for files and directories within the RapidID Connect files module                                                          | Yes                   |
 | `get-connect-file-content`         | Returns the text content of a file from the RapidID Connect files module                                                                    | Yes                   |
 

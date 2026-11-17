@@ -6,6 +6,9 @@ import "github.com/google/jsonschema-go/jsonschema"
 
 // connectSchemaDefs defines $defs shared across Connect tool schemas to break
 // the cycle: ConnectAction -> ArgDefList -> ArgDef.Actions -> ConnectActionList -> ConnectAction.
+// Any output that contains a ConnectAction, such as a job's action, needs one
+// of these schemas: the SDK cannot infer a schema for the cycle and AddTool
+// panics at startup.
 var connectSchemaDefs = map[string]*jsonschema.Schema{
 	"argDef": {
 		Type:        "object",
@@ -37,6 +40,28 @@ var connectSchemaDefs = map[string]*jsonschema.Schema{
 				Description: "The input parameters for the action.",
 				Items:       &jsonschema.Schema{Ref: "#/$defs/argDef"},
 			},
+		},
+	},
+	"connectJob": {
+		Type:        "object",
+		Description: "A Connect scheduled job.",
+		Properties: map[string]*jsonschema.Schema{
+			"name":             {Type: "string", Description: "The name of the job. Job names are unique across all projects."},
+			"id":               {Type: "string", Description: "The unique ID of the job."},
+			"version":          {Type: "integer", Description: "The version of the job."},
+			"description":      {Type: "string", Description: "The description of the job."},
+			"project":          {Type: "string", Description: "The project where the job resides."},
+			"action":           {Ref: "#/$defs/connectAction", Description: "The action set the job runs, with the arguments it passes."},
+			"cronSpec":         {Type: "string", Description: "The cron formatted job schedule: <second> <minute> <hour> <day of month> <month> <day of week>. For example every 5 minutes is 0 */5 * * * ?"},
+			"timeZone":         {Type: "string", Description: "The time zone for the schedule."},
+			"disabled":         {Type: "boolean", Description: "Whether the job is disabled."},
+			"skipOverlap":      {Type: "boolean", Description: "Whether to skip a run while the previous run is still going."},
+			"timeoutSeconds":   {Type: "integer", Description: "How long the job may run before it times out."},
+			"traceEnabled":     {Type: "boolean", Description: "Whether trace logging is enabled for the job."},
+			"runExternal":      {Type: "boolean", Description: "Whether the job can be run externally."},
+			"logRetentionDays": {Type: "integer", Description: "The number of days to keep the job's logs."},
+			"emailRecipients":  {Type: "string", Description: "A comma separated list of email addresses that get the job completion email."},
+			"attachLog":        {Type: "boolean", Description: "Whether the job completion email has the log attached."},
 		},
 	},
 	"actionDef": {
@@ -116,6 +141,25 @@ var RunConnectActionInputSchema = &jsonschema.Schema{
 		"action": {
 			Description: "The Connect action to run",
 			Ref:         "#/$defs/connectAction",
+		},
+	},
+}
+
+// ConnectJobSchema is the output schema for get-connect-job.
+var ConnectJobSchema = &jsonschema.Schema{
+	Ref:  "#/$defs/connectJob",
+	Defs: connectSchemaDefs,
+}
+
+// ConnectJobsOutputSchema is the output schema for get-connect-jobs.
+var ConnectJobsOutputSchema = &jsonschema.Schema{
+	Type: "object",
+	Defs: connectSchemaDefs,
+	Properties: map[string]*jsonschema.Schema{
+		"jobs": {
+			Type:        "array",
+			Description: "The list of Connect jobs.",
+			Items:       &jsonschema.Schema{Ref: "#/$defs/connectJob"},
 		},
 	},
 }

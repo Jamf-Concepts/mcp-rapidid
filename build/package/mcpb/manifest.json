@@ -109,6 +109,30 @@
       "description": "Runs a RapidIdentity Connect action set and returns the HTML log"
     },
     {
+      "name": "get-connect-jobs",
+      "description": "Returns RapidIdentity Connect scheduled jobs, optionally filtered by project"
+    },
+    {
+      "name": "get-connect-job",
+      "description": "Returns a single RapidIdentity Connect scheduled job by name"
+    },
+    {
+      "name": "create-connect-job",
+      "description": "Creates a RapidIdentity Connect scheduled job that runs an action set from the job's project. New jobs are disabled unless disabled is false. Fails if a job with that name already exists, ignoring case"
+    },
+    {
+      "name": "update-connect-job",
+      "description": "Updates an existing RapidIdentity Connect scheduled job: its action set (within the job's project), argument values, schedule, time zone, enabled state or description. Fields left out keep their current values. Jobs cannot be renamed or moved to another project"
+    },
+    {
+      "name": "run-connect-job",
+      "description": "Runs a RapidIdentity Connect scheduled job now, exactly as configured, including any changes it makes. This works even when the job is disabled. Returns only whether the job was started, not its log. A job cannot be run in log-only mode; use run-connect-action with logOnly for that"
+    },
+    {
+      "name": "delete-connect-job",
+      "description": "Deletes a RapidIdentity Connect scheduled job by name. It deletes only the job, not the action set it runs. This cannot be undone"
+    },
+    {
       "name": "get-connect-files",
       "description": "Returns metadata for files and directories within the RapidIdentity Connect files module"
     },
