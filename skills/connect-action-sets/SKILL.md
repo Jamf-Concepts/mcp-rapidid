@@ -7,8 +7,9 @@ description: >
   logging/counting code, build a scheduled job or function, or do anything else that involves
   Connect XML. Also trigger when the user asks about naming conventions, section structure,
   suppressTrace, logging, counters, argDefs, parameter descriptions, or any other RapidIdentity
-  Connect platform detail. If the user shows XML or references a .dssproject file in any way,
-  use this skill.
+  Connect platform detail. Also use it to create or delete a Connect project, or change a
+  project's description or its admin, operator or auditor groups. If the user shows XML or
+  references a .dssproject file in any way, use this skill.
 ---
 
 # Connect Action Sets — Authoring Skill
@@ -1072,7 +1073,7 @@ Always-on lookups:
 
 Load-when-relevant (these were split out of SKILL.md to keep it lean):
 - `references/connections.md` — Per-system connection details: AD, RI Metadirectory (incl. `getLDAPRecords` `baseDn`/`attributes` selection), Portal, Google + `callGoogleAPI`, Microsoft 365, Database, the AES Community Adapter encrypt/decrypt sequence, failure handling, and closing. **Read before authoring any connection logic.**
-- `references/mcp-and-json.md` — MCP workflow (read/explore, design, push, delete), the JSON object model (file JSON vs API JSON, argDef/action/arg shapes), and field-by-field XML ↔ JSON conversion. **Read when working against a live instance via the MCP or converting formats.**
+- `references/mcp-and-json.md` — MCP workflow (read/explore, design, push, delete, creating, updating and deleting projects), the JSON object model (file JSON vs API JSON, argDef/action/arg shapes), and field-by-field XML ↔ JSON conversion. **Read when working against a live instance via the MCP or converting formats.**
 - `references/ri-sponsorship-api.md` — RI Sponsorship API endpoints, create-account request body, and custom-attribute UUID resolution. **Read only for sponsored-account work.**
 
 Load the always-on files when you need a specific action's parameters or an LDAP attribute; load the
@@ -1086,7 +1087,12 @@ The `RapidIdentity MCP Server:*` tools cover discovery and metadata: `get-connec
 `get-connect-actions` (list/metadata), `get-connect-action` (single), `save-connect-action`, and
 `delete-connect-action` (always confirm before deleting).
 
-**Full MCP workflow (read/explore, the JSON object model, and field-by-field XML ↔ JSON conversion
-rules) is in `references/mcp-and-json.md`.**
+Projects: `create-connect-project` (fails if the name is taken), `update-connect-project`
+(fails if the project does not exist; fields left out are kept, `""` clears one; projects cannot
+be renamed), and `delete-connect-project` (always confirm before deleting). Create and update take
+full group DNs for the admin, operator and auditor roles; get them with `search-groups`.
+
+**Full MCP workflow (read/explore, the JSON object model, field-by-field XML ↔ JSON conversion
+rules, and the project tools) is in `references/mcp-and-json.md`.**
 
 ---

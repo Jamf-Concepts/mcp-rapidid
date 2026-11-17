@@ -98,6 +98,9 @@ The "Service ID Compatible" column indicates whether a RapidID Service Identity 
 | `get-group-members`                | Gets group members for a specified RapidID group                                                                                            | Yes                   |
 | `get-user-activity-from-audit-log` | Returns audit log activity for a specific RapidID user over a given date range                                                              | Yes                   |
 | `get-connect-projects`             | Returns all RapidID Connect projects                                                                                                        | Yes                   |
+| `create-connect-project`           | Creates a new RapidID Connect project, optionally with admin, operator and auditor group DNs                                                | Yes                   |
+| `update-connect-project`           | Updates the description and group DNs of an existing RapidID Connect project                                                                | Yes                   |
+| `delete-connect-project`           | Deletes a RapidID Connect project by name                                                                                                   | Yes                   |
 | `get-connect-actions`              | Returns Connect action sets within a project, or across all projects                                                                        | Yes                   |
 | `get-connect-action`               | Returns a single RapidID Connect action set by ID                                                                                           | Yes                   |
 | `save-connect-action`              | Saves (creates or updates) a RapidID Connect action set                                                                                     | Yes                   |
