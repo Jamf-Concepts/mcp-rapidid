@@ -21,7 +21,7 @@ func TestCreateConnectProject(t *testing.T) {
 		name         string
 		input        string
 		groups       CreateConnectProjectInput
-		wantBody     map[string]any
+		wantBody     map[string]string
 		listBody     string
 		postStatus   int
 		postBody     string
@@ -51,7 +51,7 @@ func TestCreateConnectProject(t *testing.T) {
 			postStatus: http.StatusOK,
 			postBody:   `{"name":"New Project","id":"new-id"}`,
 			wantPost:   true,
-			wantBody:   map[string]any{"name": "New Project", "adminGroupDN": "cn=admins,o=example", "auditorGroupDN": "cn=audit,o=example"},
+			wantBody:   map[string]string{"name": "New Project", "adminGroupDN": "cn=admins,o=example", "auditorGroupDN": "cn=audit,o=example"},
 		},
 		{
 			name:        "blank name",
@@ -93,7 +93,7 @@ func TestCreateConnectProject(t *testing.T) {
 			mux := setup(t)
 
 			var postedName string
-			var postedBody map[string]any
+			var postedBody map[string]string
 			posted := false
 			mux.HandleFunc(baseUrlPath+"/admin/connect/projects", func(w http.ResponseWriter, r *http.Request) {
 				if r.Method == http.MethodGet {
@@ -102,13 +102,9 @@ func TestCreateConnectProject(t *testing.T) {
 					return
 				}
 				posted = true
-				var payload map[string]any
 				reqBody, _ := io.ReadAll(r.Body)
-				if err := json.Unmarshal(reqBody, &payload); err != nil {
-					t.Errorf("request body is not JSON: %q", reqBody)
-				}
-				postedBody = payload
-				postedName, _ = payload["name"].(string)
+				postedBody = decodeStringFields(t, reqBody)
+				postedName = postedBody["name"]
 				w.WriteHeader(tt.postStatus)
 				w.Write([]byte(tt.postBody))
 			})
@@ -135,7 +131,7 @@ func TestCreateConnectProject(t *testing.T) {
 			if tt.wantPost {
 				wantBody := tt.wantBody
 				if wantBody == nil {
-					wantBody = map[string]any{"name": strings.TrimSpace(tt.input)}
+					wantBody = map[string]string{"name": strings.TrimSpace(tt.input)}
 				}
 				if !reflect.DeepEqual(postedBody, wantBody) {
 					t.Fatalf("posted body %v, want %v", postedBody, wantBody)
@@ -162,4 +158,15 @@ func TestCreateConnectProjectNoSecretLeak(t *testing.T) {
 	assertNoSecretLeak(t, []string{mockPassword, "abcd"}, func() {
 		CreateConnectProject(context.Background(), newReq(), CreateConnectProjectInput{Name: "New Project"})
 	})
+}
+
+// decodeStringFields decodes a JSON object whose values must all be strings,
+// failing the test otherwise.
+func decodeStringFields(t *testing.T, body []byte) map[string]string {
+	t.Helper()
+	var fields map[string]string
+	if err := json.Unmarshal(body, &fields); err != nil {
+		t.Errorf("request body is not an object of strings: %q (%v)", body, err)
+	}
+	return fields
 }

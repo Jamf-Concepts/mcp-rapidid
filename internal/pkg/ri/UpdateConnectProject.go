@@ -26,16 +26,11 @@ type UpdateConnectProjectInput struct {
 // because the server would otherwise create a new project; see
 // saveConnectProject.
 func UpdateConnectProject(ctx context.Context, req *mcp.CallToolRequest, input UpdateConnectProjectInput) (*mcp.CallToolResult, rapididentity.ConnectProject, error) {
-	changes := map[string]any{}
-	for field, value := range map[string]*string{
-		"description":     input.Description,
-		"adminGroupDN":    input.AdminGroupDN,
-		"operatorGroupDN": input.OperatorGroupDN,
-		"auditorGroupDN":  input.AuditorGroupDN,
-	} {
-		if value != nil {
-			changes[field] = *value
-		}
+	changes := connectProjectChanges{
+		Description:     input.Description,
+		AdminGroupDN:    input.AdminGroupDN,
+		OperatorGroupDN: input.OperatorGroupDN,
+		AuditorGroupDN:  input.AuditorGroupDN,
 	}
 	return saveConnectProject(ctx, req, updateConnectProjectToolName, input.Name, true, changes)
 }

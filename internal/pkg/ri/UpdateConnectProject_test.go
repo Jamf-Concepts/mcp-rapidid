@@ -3,6 +3,7 @@
 package ri
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -121,7 +122,7 @@ func TestUpdateConnectProject(t *testing.T) {
 			mux := setup(t)
 
 			got, posted := false, false
-			var postedBody map[string]any
+			var postedBody map[string]json.RawMessage
 			mux.HandleFunc(baseUrlPath+"/admin/connect/projects", func(w http.ResponseWriter, r *http.Request) {
 				if r.Method == http.MethodGet {
 					w.WriteHeader(http.StatusOK)
@@ -166,7 +167,7 @@ func TestUpdateConnectProject(t *testing.T) {
 			// The body must be the whole current project with only the
 			// description changed: same id, same name spelling, every
 			// other field (including unmodelled ones) as it was.
-			var want map[string]any
+			var want map[string]json.RawMessage
 			if err := json.Unmarshal([]byte(currentProjectBody), &want); err != nil {
 				t.Fatal(err)
 			}
@@ -177,13 +178,12 @@ func TestUpdateConnectProject(t *testing.T) {
 				"auditorGroupDN":  tt.input.AuditorGroupDN,
 			} {
 				if value != nil {
-					want[field] = *value
+					encoded, _ := json.Marshal(*value)
+					want[field] = encoded
 				}
 			}
-			if !reflect.DeepEqual(postedBody, want) {
-				gotJSON, _ := json.Marshal(postedBody)
-				wantJSON, _ := json.Marshal(want)
-				t.Fatalf("posted body\n got %s\nwant %s", gotJSON, wantJSON)
+			if got, wantCompact := compactFields(t, postedBody), compactFields(t, want); !reflect.DeepEqual(got, wantCompact) {
+				t.Fatalf("posted body\n got %v\nwant %v", got, wantCompact)
 			}
 			if output.Id != "old-id" {
 				t.Fatalf("unexpected output %+v", output)
@@ -214,4 +214,19 @@ func TestUpdateConnectProjectNoSecretLeak(t *testing.T) {
 
 func strPtr(s string) *string {
 	return &s
+}
+
+// compactFields returns each raw JSON field without insignificant
+// whitespace, so that bodies can be compared field by field.
+func compactFields(t *testing.T, fields map[string]json.RawMessage) map[string]string {
+	t.Helper()
+	compacted := make(map[string]string, len(fields))
+	for name, raw := range fields {
+		var buf bytes.Buffer
+		if err := json.Compact(&buf, raw); err != nil {
+			t.Fatalf("field %q is not valid JSON: %v", name, err)
+		}
+		compacted[name] = buf.String()
+	}
+	return compacted
 }

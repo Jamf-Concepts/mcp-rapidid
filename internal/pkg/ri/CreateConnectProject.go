@@ -23,15 +23,19 @@ type CreateConnectProjectInput struct {
 // use, because the server would otherwise replace that project and clear its
 // fields; see saveConnectProject.
 func CreateConnectProject(ctx context.Context, req *mcp.CallToolRequest, input CreateConnectProjectInput) (*mcp.CallToolResult, rapididentity.ConnectProject, error) {
-	changes := map[string]any{}
-	for field, value := range map[string]string{
-		"adminGroupDN":    input.AdminGroupDN,
-		"operatorGroupDN": input.OperatorGroupDN,
-		"auditorGroupDN":  input.AuditorGroupDN,
-	} {
-		if value != "" {
-			changes[field] = value
-		}
+	changes := connectProjectChanges{
+		AdminGroupDN:    nonEmpty(input.AdminGroupDN),
+		OperatorGroupDN: nonEmpty(input.OperatorGroupDN),
+		AuditorGroupDN:  nonEmpty(input.AuditorGroupDN),
 	}
 	return saveConnectProject(ctx, req, createConnectProjectToolName, input.Name, false, changes)
+}
+
+// nonEmpty returns nil for "", so that an empty group is left out of the
+// new project instead of being sent.
+func nonEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }

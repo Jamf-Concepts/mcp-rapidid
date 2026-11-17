@@ -40,12 +40,13 @@ import (
 //   - update (mustExist true) fails when no project has the name, instead of
 //     silently creating one, and sends back the WHOLE current project, with
 //     its id, so that only the fields in changes are altered. The current
-//     project is read as raw JSON, not through rapididentity.ConnectProject,
-//     so that fields the SDK type does not model are not dropped.
+//     project is kept as raw JSON per field (map[string]json.RawMessage), not
+//     decoded into rapididentity.ConnectProject, so that fields the SDK type
+//     does not model are sent back unchanged instead of being dropped.
 //
 // Names are compared ignoring case; the existing project's own spelling is
 // what gets sent, because the server matches names exactly.
-func saveConnectProject(ctx context.Context, req *mcp.CallToolRequest, toolName string, name string, mustExist bool, changes map[string]any) (*mcp.CallToolResult, rapididentity.ConnectProject, error) {
+func saveConnectProject(ctx context.Context, req *mcp.CallToolRequest, toolName string, name string, mustExist bool, changes connectProjectChanges) (*mcp.CallToolResult, rapididentity.ConnectProject, error) {
 	var err error
 	ctx, client, sh, setupErr := ToolSetup(ctx, req, toolName)
 	if setupErr != nil {
@@ -68,7 +69,7 @@ func saveConnectProject(ctx context.Context, req *mcp.CallToolRequest, toolName 
 		LogRIError(ctx, sh, "unable to save Connect project", err)
 		return nil, rapididentity.ConnectProject{}, err
 	}
-	if mustExist && len(changes) == 0 {
+	if mustExist && changes == (connectProjectChanges{}) {
 		err = fmt.Errorf("nothing to update: pass at least one field to change")
 		LogRIError(ctx, sh, "unable to save Connect project", err)
 		return nil, rapididentity.ConnectProject{}, err
@@ -90,14 +91,22 @@ func saveConnectProject(ctx context.Context, req *mcp.CallToolRequest, toolName 
 		return nil, rapididentity.ConnectProject{}, err
 	}
 
-	payload := map[string]any{"name": name}
+	var payload map[string]json.RawMessage
 	if existingName != "" {
 		payload, err = getConnectProjectJSON(ctx, client, sh, toolName, existingName)
-		if err != nil {
-			return nil, rapididentity.ConnectProject{}, err
-		}
+	} else {
+		var nameJSON json.RawMessage
+		nameJSON, err = json.Marshal(name)
+		payload = map[string]json.RawMessage{"name": nameJSON}
 	}
-	for field, value := range changes {
+	if err != nil {
+		return nil, rapididentity.ConnectProject{}, err
+	}
+	changed, err := changes.rawFields()
+	if err != nil {
+		return nil, rapididentity.ConnectProject{}, err
+	}
+	for field, value := range changed {
 		payload[field] = value
 	}
 
@@ -140,6 +149,30 @@ func saveConnectProject(ctx context.Context, req *mcp.CallToolRequest, toolName 
 	return nil, project, nil
 }
 
+// connectProjectChanges holds the fields that create and update set. A nil
+// field is left as it is; a pointer to "" clears the field. The JSON names
+// are the server's field names.
+type connectProjectChanges struct {
+	Description     *string `json:"description,omitempty"`
+	AdminGroupDN    *string `json:"adminGroupDN,omitempty"`
+	OperatorGroupDN *string `json:"operatorGroupDN,omitempty"`
+	AuditorGroupDN  *string `json:"auditorGroupDN,omitempty"`
+}
+
+// rawFields returns the fields that are set, keyed by their JSON names and
+// encoded as raw JSON, ready to be merged into a project body.
+func (c connectProjectChanges) rawFields() (map[string]json.RawMessage, error) {
+	encoded, err := json.Marshal(c)
+	if err != nil {
+		return nil, err
+	}
+	var fields map[string]json.RawMessage
+	if err = json.Unmarshal(encoded, &fields); err != nil {
+		return nil, err
+	}
+	return fields, nil
+}
+
 // findConnectProjectName returns the exact name of the project whose name
 // matches name ignoring case, or "" when there is none. The server matches
 // names exactly, so callers send the returned spelling, not the caller's.
@@ -159,7 +192,7 @@ func findConnectProjectName(ctx context.Context, client *rapididentity.Client, s
 }
 
 // getConnectProjectJSON reads one project, by its exact name, as raw JSON.
-func getConnectProjectJSON(ctx context.Context, client *rapididentity.Client, sh *helper.ServerHelper, toolName string, name string) (map[string]any, error) {
+func getConnectProjectJSON(ctx context.Context, client *rapididentity.Client, sh *helper.ServerHelper, toolName string, name string) (map[string]json.RawMessage, error) {
 	path := "admin/connect/projects/" + url.PathEscape(name)
 
 	sh.Logger().Info("Retrieving the current Connect project", "path", path)
@@ -174,7 +207,7 @@ func getConnectProjectJSON(ctx context.Context, client *rapididentity.Client, sh
 		return nil, err
 	}
 
-	var project map[string]any
+	var project map[string]json.RawMessage
 	if err = json.Unmarshal(projectBody, &project); err != nil || project == nil {
 		if err == nil {
 			err = fmt.Errorf("empty response retrieving Connect project %q", name)
