@@ -6,7 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/Jamf-Concepts/mcp-rapidid/internal/pkg/telemetry"
@@ -32,6 +35,11 @@ type RunConnectJobOutput struct {
 // success is false is returned as an error, so a job is never reported as
 // started when it was not.
 func RunConnectJob(ctx context.Context, req *mcp.CallToolRequest, input RunConnectJobInput) (*mcp.CallToolResult, RunConnectJobOutput, error) {
+	name := strings.TrimSpace(input.Name)
+	if name == "" {
+		return nil, RunConnectJobOutput{}, fmt.Errorf("a job name is required")
+	}
+
 	var err error
 	ctx, client, sh, setupErr := ToolSetup(ctx, req, runConnectJobToolName)
 	if setupErr != nil {
@@ -40,7 +48,7 @@ func RunConnectJob(ctx context.Context, req *mcp.CallToolRequest, input RunConne
 	start := time.Now()
 	defer telemetry.RecordCompletion(ctx, runConnectJobToolName, start, &err)
 
-	sh.Logger().Info(runConnectJobToolName+" tool called", "name", input.Name)
+	sh.Logger().Info(runConnectJobToolName+" tool called", "name", name)
 
 	defer func(c *rapididentity.Client) {
 		if err := c.Close(); err != nil {
@@ -48,7 +56,7 @@ func RunConnectJob(ctx context.Context, req *mcp.CallToolRequest, input RunConne
 		}
 	}(client)
 
-	existing, err := requireConnectJob(ctx, client, sh, input.Name)
+	existing, err := requireConnectJob(ctx, client, sh, name)
 	if err != nil {
 		return nil, RunConnectJobOutput{}, err
 	}
@@ -62,8 +70,21 @@ func RunConnectJob(ctx context.Context, req *mcp.CallToolRequest, input RunConne
 		return nil, RunConnectJobOutput{}, err
 	}
 
-	runBody, err := readConnectJobResponse(ctx, sh, runConnectJobToolName, runRes)
+	defer func(res *http.Response) {
+		if err := res.Body.Close(); err != nil {
+			sh.Logger().Warn("issue closing response body for "+path+" endpoint response", "error", err)
+		}
+	}(runRes)
+
+	if err = checkResponseStatus(runRes); err != nil {
+		LogRIError(ctx, sh, "unable to run Connect job", err)
+		return nil, RunConnectJobOutput{}, err
+	}
+
+	runBody, err := io.ReadAll(runRes.Body)
 	if err != nil {
+		sh.Logger().Error("unable to read response body for GET "+path+" response", "error", err, "status", runRes.StatusCode)
+		telemetry.RecordError(ctx, fmt.Sprintf(telemetry.EventPrefix+telemetry.ToolErrorPrefix+"%s", runConnectJobToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, RunConnectJobOutput{}, err
 	}
 

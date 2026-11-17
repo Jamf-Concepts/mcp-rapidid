@@ -3,9 +3,12 @@
 package ri
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"strings"
 	"time"
 
@@ -27,22 +30,37 @@ type CreateConnectJobInput struct {
 	Disabled    *bool                `json:"disabled,omitempty" jsonschema:"Whether the job is disabled. New jobs are disabled unless this is false"`
 }
 
-// connectJobCreateBody is the body for a new job: no id and no version.
-type connectJobCreateBody struct {
-	Name        string           `json:"name"`
-	Project     string           `json:"project"`
-	Description string           `json:"description,omitempty"`
-	CronSpec    string           `json:"cronSpec,omitempty"`
-	TimeZone    string           `json:"timeZone,omitempty"`
-	Disabled    bool             `json:"disabled"`
-	Action      connectJobAction `json:"action"`
+// createConnectJobBody is the body for a new job. It has no id or version,
+// so that the server creates the job, and its action has no id, so that the
+// server generates the job's action step id.
+type createConnectJobBody struct {
+	Name        string                 `json:"name"`
+	Project     string                 `json:"project"`
+	Description string                 `json:"description,omitempty"`
+	CronSpec    string                 `json:"cronSpec,omitempty"`
+	TimeZone    string                 `json:"timeZone,omitempty"`
+	Disabled    bool                   `json:"disabled"`
+	Action      createConnectJobAction `json:"action"`
+}
+
+type createConnectJobAction struct {
+	Name    string                   `json:"name"`
+	Project string                   `json:"project"`
+	Args    rapididentity.ArgDefList `json:"args"`
 }
 
 // CreateConnectJob creates a scheduled job. It refuses a name that matches
 // an existing job's ignoring case (the server only refuses exact matches),
 // checks that the action set exists in the job's project, and creates the
-// job disabled unless the caller says otherwise. See ConnectJobSave.go.
+// job disabled unless the caller says otherwise. See ConnectJobs.go.
 func CreateConnectJob(ctx context.Context, req *mcp.CallToolRequest, input CreateConnectJobInput) (*mcp.CallToolResult, rapididentity.ConnectJob, error) {
+	name := strings.TrimSpace(input.Name)
+	project := strings.TrimSpace(input.Project)
+	actionSetName := strings.TrimSpace(input.ActionSet)
+	if name == "" || project == "" || actionSetName == "" {
+		return nil, rapididentity.ConnectJob{}, fmt.Errorf("a job name, a project and an action set are required")
+	}
+
 	var err error
 	ctx, client, sh, setupErr := ToolSetup(ctx, req, createConnectJobToolName)
 	if setupErr != nil {
@@ -51,22 +69,13 @@ func CreateConnectJob(ctx context.Context, req *mcp.CallToolRequest, input Creat
 	start := time.Now()
 	defer telemetry.RecordCompletion(ctx, createConnectJobToolName, start, &err)
 
-	sh.Logger().Info(createConnectJobToolName+" tool called", "name", input.Name, "project", input.Project)
+	sh.Logger().Info(createConnectJobToolName+" tool called", "name", name, "project", project)
 
 	defer func(c *rapididentity.Client) {
 		if err := c.Close(); err != nil {
 			LogRIError(ctx, sh, "unable to close rapididentity client", err)
 		}
 	}(client)
-
-	name := strings.TrimSpace(input.Name)
-	project := strings.TrimSpace(input.Project)
-	actionSetName := strings.TrimSpace(input.ActionSet)
-	if name == "" || project == "" || actionSetName == "" {
-		err = fmt.Errorf("a job name, a project and an action set are required")
-		LogRIError(ctx, sh, "unable to create Connect job", err)
-		return nil, rapididentity.ConnectJob{}, err
-	}
 
 	jobs, err := client.GetConnectJobs(ctx, rapididentity.GetConnectJobsInput{})
 	if err != nil {
@@ -96,14 +105,14 @@ func CreateConnectJob(ctx context.Context, req *mcp.CallToolRequest, input Creat
 		disabled = *input.Disabled
 	}
 
-	body, err := json.Marshal(connectJobCreateBody{
+	requestPayload, err := json.Marshal(createConnectJobBody{
 		Name:        name,
 		Project:     actionSet.Project,
 		Description: input.Description,
 		CronSpec:    input.CronSpec,
 		TimeZone:    input.TimeZone,
 		Disabled:    disabled,
-		Action:      connectJobAction{Name: actionSet.Name, Project: actionSet.Project, Args: args},
+		Action:      createConnectJobAction{Name: actionSet.Name, Project: actionSet.Project, Args: args},
 	})
 	if err != nil {
 		sh.Logger().Error("unable to marshal Connect job payload", "error", err)
@@ -111,8 +120,39 @@ func CreateConnectJob(ctx context.Context, req *mcp.CallToolRequest, input Creat
 		return nil, rapididentity.ConnectJob{}, err
 	}
 
-	job, err := postConnectJob(ctx, client, sh, createConnectJobToolName, body)
+	sh.Logger().Info("Calling admin/connect/jobs endpoint")
+	jobRes, err := client.DoCustomRequest(ctx, "POST", "admin/connect/jobs", bytes.NewBuffer(requestPayload))
 	if err != nil {
+		LogRIError(ctx, sh, "unable to create Connect job", err)
+		return nil, rapididentity.ConnectJob{}, err
+	}
+
+	defer func(res *http.Response) {
+		if err := res.Body.Close(); err != nil {
+			sh.Logger().Warn("issue closing response body for admin/connect/jobs endpoint response", "error", err)
+		}
+	}(jobRes)
+
+	if err = checkResponseStatus(jobRes); err != nil {
+		LogRIError(ctx, sh, "unable to create Connect job", err)
+		return nil, rapididentity.ConnectJob{}, err
+	}
+
+	jobBody, err := io.ReadAll(jobRes.Body)
+	if err != nil {
+		sh.Logger().Error("unable to read response body for admin/connect/jobs response", "error", err, "status", jobRes.StatusCode)
+		telemetry.RecordError(ctx, fmt.Sprintf(telemetry.EventPrefix+telemetry.ToolErrorPrefix+"%s", createConnectJobToolName), "see server logs", telemetry.ErrorCategoryThrownException)
+		return nil, rapididentity.ConnectJob{}, err
+	}
+
+	sh.Logger().Debug("POST admin/connect/jobs response body", "body", string(jobBody))
+
+	var job rapididentity.ConnectJob
+
+	err = json.Unmarshal(jobBody, &job)
+	if err != nil {
+		sh.Logger().Error("unable to unmarshal json for POST admin/connect/jobs response body", "error", err)
+		telemetry.RecordError(ctx, fmt.Sprintf(telemetry.EventPrefix+telemetry.ToolErrorPrefix+"%s", createConnectJobToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, rapididentity.ConnectJob{}, err
 	}
 

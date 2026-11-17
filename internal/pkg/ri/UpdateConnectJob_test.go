@@ -3,32 +3,32 @@
 package ri
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"io"
 	"net/http"
-	"reflect"
 	"strings"
 	"testing"
 )
 
-// currentJobBody is what GET admin/connect/jobs/staff-id returns. futureTop
-// is a field rapididentity.ConnectJob does not model, to prove an update
-// sends it back untouched.
+// currentJobBody is what GET admin/connect/jobs/staff-id returns, shaped
+// like real tenant data: every field rapididentity.ConnectJob models, and an
+// action with only id, name, project and args.
 const currentJobBody = `{
 	"name": "StaffSync", "id": "staff-id", "version": 3, "project": "sync",
 	"description": "nightly", "cronSpec": "0 0 2 * * ?", "timeZone": "America/Chicago",
 	"disabled": true, "skipOverlap": true, "timeoutSeconds": 600, "traceEnabled": false,
 	"runExternal": false, "logRetentionDays": 30, "emailRecipients": "ops@example.com", "attachLog": true,
-	"futureTop": 7,
 	"action": {"id": "step-id", "name": "StaffSync", "project": "sync",
 		"args": [{"name": "logOnly", "value": "false"}, {"name": "logLevel", "value": "\"normal\""}, {"name": "fullSync"}]}
 }`
 
-// currentJobBodyOddAction has an action field this tool does not model.
-const currentJobBodyOddAction = `{"name": "StaffSync", "id": "staff-id", "version": 3, "project": "sync",
-	"action": {"id": "step-id", "name": "StaffSync", "project": "sync", "outputVar": "x", "args": []}}`
+// currentJobBodyUnknownField has a field rapididentity.ConnectJob does not model.
+const currentJobBodyUnknownField = `{"name": "StaffSync", "id": "staff-id", "version": 3, "project": "sync",
+	"description": "", "cronSpec": "", "timeZone": "UTC", "disabled": true, "skipOverlap": false, "timeoutSeconds": 0,
+	"traceEnabled": false, "runExternal": false, "logRetentionDays": 0, "emailRecipients": "", "attachLog": false,
+	"retryPolicy": "never",
+	"action": {"id": "step-id", "name": "StaffSync", "project": "sync", "args": []}}`
 
 func TestUpdateConnectJob(t *testing.T) {
 	tests := []struct {
@@ -39,28 +39,32 @@ func TestUpdateConnectJob(t *testing.T) {
 		postBody    string
 		wantErr     bool
 		errContains string
+		wantList    bool
 		wantGet     bool
 		wantPost    bool
 		// wantChanged lists the fields that must differ from the current
-		// job, with their expected JSON; every other field must be equal.
+		// job, with their expected JSON; every other field, at every depth,
+		// must be sent back as it came.
 		wantChanged map[string]string
 	}{
 		{
-			name:        "description only, action sent back untouched",
-			input:       UpdateConnectJobInput{Name: "StaffSync", Description: jobStrPtr("hourly")},
+			name:        "description only, the rest sent back",
+			input:       UpdateConnectJobInput{Name: "StaffSync", Description: strPtr("hourly")},
 			getBody:     currentJobBody,
 			postStatus:  http.StatusOK,
 			postBody:    `{"name":"StaffSync","id":"staff-id","version":4}`,
+			wantList:    true,
 			wantGet:     true,
 			wantPost:    true,
 			wantChanged: map[string]string{"description": `"hourly"`},
 		},
 		{
-			name:       "schedule and enable",
-			input:      UpdateConnectJobInput{Name: "staffsync", CronSpec: jobStrPtr("0 0 * * * ?"), TimeZone: jobStrPtr("UTC"), Disabled: boolPtr(false)},
+			name:       "schedule and enable, name matched ignoring case",
+			input:      UpdateConnectJobInput{Name: " staffsync ", CronSpec: strPtr("0 0 * * * ?"), TimeZone: strPtr("UTC"), Disabled: boolPtr(false)},
 			getBody:    currentJobBody,
 			postStatus: http.StatusOK,
 			postBody:   `{"name":"StaffSync","id":"staff-id","version":4}`,
+			wantList:   true,
 			wantGet:    true,
 			wantPost:   true,
 			wantChanged: map[string]string{
@@ -73,40 +77,33 @@ func TestUpdateConnectJob(t *testing.T) {
 			getBody:    currentJobBody,
 			postStatus: http.StatusOK,
 			postBody:   `{"name":"StaffSync","id":"staff-id","version":4}`,
+			wantList:   true,
 			wantGet:    true,
 			wantPost:   true,
 			wantChanged: map[string]string{
-				"action": `{"id":"step-id","name":"StaffSync","project":"sync","args":[{"name":"logOnly"},{"name":"logLevel","value":"\"debug\""},{"name":"fullSync"}]}`,
+				"action": `{"id":"step-id","name":"StaffSync","project":"sync","disabled":false,"outputVar":"","args":[{"name":"logOnly"},{"name":"logLevel","value":"\"debug\""},{"name":"fullSync"}]}`,
 			},
 		},
 		{
 			name:       "another action set, shared argument values carry over",
-			input:      UpdateConnectJobInput{Name: "StaffSync", ActionSet: jobStrPtr("OtherAction")},
+			input:      UpdateConnectJobInput{Name: "StaffSync", ActionSet: strPtr("OtherAction")},
 			getBody:    currentJobBody,
 			postStatus: http.StatusOK,
 			postBody:   `{"name":"StaffSync","id":"staff-id","version":4}`,
+			wantList:   true,
 			wantGet:    true,
 			wantPost:   true,
 			wantChanged: map[string]string{
-				"action": `{"id":"step-id","name":"OtherAction","project":"sync","args":[{"name":"logOnly","value":"false"},{"name":"target"}]}`,
+				"action": `{"id":"step-id","name":"OtherAction","project":"sync","disabled":false,"outputVar":"","args":[{"name":"logOnly","value":"false"},{"name":"target"}]}`,
 			},
 		},
 		{
-			name:        "description change keeps an unknown action field",
-			input:       UpdateConnectJobInput{Name: "StaffSync", Description: jobStrPtr("x")},
-			getBody:     currentJobBodyOddAction,
-			postStatus:  http.StatusOK,
-			postBody:    `{"name":"StaffSync","id":"staff-id","version":4}`,
-			wantGet:     true,
-			wantPost:    true,
-			wantChanged: map[string]string{"description": `"x"`},
-		},
-		{
-			name:        "action change refused for an unknown action field",
-			input:       UpdateConnectJobInput{Name: "StaffSync", Args: []ConnectJobArgInput{{Name: "logOnly", Value: "true"}}},
-			getBody:     currentJobBodyOddAction,
+			name:        "a field this tool does not know stops the update",
+			input:       UpdateConnectJobInput{Name: "StaffSync", Description: strPtr("x")},
+			getBody:     currentJobBodyUnknownField,
 			wantErr:     true,
-			errContains: "shape this tool does not know",
+			errContains: "could not be read safely",
+			wantList:    true,
 			wantGet:     true,
 		},
 		{
@@ -115,14 +112,16 @@ func TestUpdateConnectJob(t *testing.T) {
 			getBody:     currentJobBody,
 			wantErr:     true,
 			errContains: `has no argument named "dryRun"`,
+			wantList:    true,
 			wantGet:     true,
 		},
 		{
 			name:        "new action set missing",
-			input:       UpdateConnectJobInput{Name: "StaffSync", ActionSet: jobStrPtr("NoSuchSet")},
+			input:       UpdateConnectJobInput{Name: "StaffSync", ActionSet: strPtr("NoSuchSet")},
 			getBody:     currentJobBody,
 			wantErr:     true,
 			errContains: `project "sync" has no action set named "NoSuchSet"`,
+			wantList:    true,
 			wantGet:     true,
 		},
 		{
@@ -133,18 +132,20 @@ func TestUpdateConnectJob(t *testing.T) {
 		},
 		{
 			name:        "job does not exist",
-			input:       UpdateConnectJobInput{Name: "missing", Description: jobStrPtr("x")},
+			input:       UpdateConnectJobInput{Name: "missing", Description: strPtr("x")},
 			wantErr:     true,
 			errContains: `no Connect job named "missing"`,
+			wantList:    true,
 		},
 		{
 			name:        "stale version refused by the server",
-			input:       UpdateConnectJobInput{Name: "StaffSync", Description: jobStrPtr("x")},
+			input:       UpdateConnectJobInput{Name: "StaffSync", Description: strPtr("x")},
 			getBody:     currentJobBody,
 			postStatus:  http.StatusConflict,
 			postBody:    `{"success":false,"message":"The data you provided is out of date. Please refresh and try again.","httpStatus":409}`,
 			wantErr:     true,
-			errContains: "out of date",
+			errContains: "non-success status 409",
+			wantList:    true,
 			wantGet:     true,
 			wantPost:    true,
 		},
@@ -155,10 +156,11 @@ func TestUpdateConnectJob(t *testing.T) {
 			mux := setup(t)
 			handleConnectActionSets(mux)
 
-			got, posted := false, false
+			listed, got, posted := false, false, false
 			var rawBody []byte
 			mux.HandleFunc(baseUrlPath+"/admin/connect/jobs", func(w http.ResponseWriter, r *http.Request) {
 				if r.Method == http.MethodGet {
+					listed = true
 					w.WriteHeader(http.StatusOK)
 					w.Write([]byte(connectJobsBody))
 					return
@@ -185,6 +187,9 @@ func TestUpdateConnectJob(t *testing.T) {
 			if tt.errContains != "" && !strings.Contains(err.Error(), tt.errContains) {
 				t.Fatalf("error %q does not contain %q", err.Error(), tt.errContains)
 			}
+			if listed != tt.wantList {
+				t.Fatalf("job list called = %v, want %v", listed, tt.wantList)
+			}
 			if got != tt.wantGet {
 				t.Fatalf("GET of the current job called = %v, want %v", got, tt.wantGet)
 			}
@@ -195,40 +200,79 @@ func TestUpdateConnectJob(t *testing.T) {
 				return
 			}
 
-			var current, sent map[string]json.RawMessage
-			if err := json.Unmarshal([]byte(tt.getBody), &current); err != nil {
+			// The SDK type always writes the action's disabled and outputVar,
+			// which the API leaves out; both are their defaults and the server
+			// accepts them, so they are the one expected addition.
+			var want map[string]json.RawMessage
+			if err := json.Unmarshal([]byte(tt.getBody), &want); err != nil {
 				t.Fatal(err)
 			}
-			if err := json.Unmarshal(rawBody, &sent); err != nil {
-				t.Fatalf("request body is not JSON: %q", rawBody)
+			var action map[string]json.RawMessage
+			if err := json.Unmarshal(want["action"], &action); err != nil {
+				t.Fatal(err)
 			}
-			want := compactRawFields(t, current)
+			action["disabled"] = json.RawMessage(`false`)
+			action["outputVar"] = json.RawMessage(`""`)
+			want["action"], _ = json.Marshal(action)
 			for field, value := range tt.wantChanged {
-				want[field] = compactRaw(t, []byte(value))
+				want[field] = json.RawMessage(value)
 			}
-			if gotFields := compactRawFields(t, sent); !reflect.DeepEqual(gotFields, want) {
-				t.Fatalf("posted body\n got %v\nwant %v", gotFields, want)
+			wantJSON, err := json.Marshal(want)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if gotCanon, wantCanon := canonicalJSON(t, rawBody), canonicalJSON(t, wantJSON); gotCanon != wantCanon {
+				t.Fatalf("posted body\n got %s\nwant %s", gotCanon, wantCanon)
 			}
 		})
 	}
 }
 
-// compactRawFields returns each raw JSON field without insignificant
-// whitespace, so that bodies can be compared field by field.
-func compactRawFields(t *testing.T, fields map[string]json.RawMessage) map[string]string {
-	t.Helper()
-	compacted := make(map[string]string, len(fields))
-	for name, raw := range fields {
-		compacted[name] = compactRaw(t, raw)
-	}
-	return compacted
-}
+// TestConnectJobValidationBeforeSetup points RI_HOST at a closed port: if a
+// tool connected before validating its input, the error would be a
+// connection failure instead of the validation message.
+func TestConnectJobValidationBeforeSetup(t *testing.T) {
+	t.Setenv("RI_HOST", "http://127.0.0.1:1")
+	t.Setenv("RI_USER", mockUsername)
+	t.Setenv("RI_PASSWORD", mockPassword)
 
-func compactRaw(t *testing.T, raw []byte) string {
-	t.Helper()
-	var buf bytes.Buffer
-	if err := json.Compact(&buf, raw); err != nil {
-		t.Fatalf("not valid JSON: %s (%v)", raw, err)
+	checks := []struct {
+		name        string
+		call        func() error
+		errContains string
+	}{
+		{"get, blank name", func() error {
+			_, _, err := GetConnectJob(context.Background(), newReq(), GetConnectJobInput{Name: " "})
+			return err
+		}, "name is required"},
+		{"run, blank name", func() error {
+			_, _, err := RunConnectJob(context.Background(), newReq(), RunConnectJobInput{Name: " "})
+			return err
+		}, "name is required"},
+		{"delete, blank name", func() error {
+			_, _, err := DeleteConnectJob(context.Background(), newReq(), DeleteConnectJobInput{Name: " "})
+			return err
+		}, "name is required"},
+		{"create, missing action set", func() error {
+			_, _, err := CreateConnectJob(context.Background(), newReq(), CreateConnectJobInput{Name: "x", Project: "p"})
+			return err
+		}, "are required"},
+		{"update, blank name", func() error {
+			_, _, err := UpdateConnectJob(context.Background(), newReq(), UpdateConnectJobInput{Name: " ", Description: strPtr("x")})
+			return err
+		}, "name is required"},
+		{"update, nothing to change", func() error {
+			_, _, err := UpdateConnectJob(context.Background(), newReq(), UpdateConnectJobInput{Name: "x"})
+			return err
+		}, "nothing to update"},
 	}
-	return buf.String()
+
+	for _, c := range checks {
+		t.Run(c.name, func(t *testing.T) {
+			err := c.call()
+			if err == nil || !strings.Contains(err.Error(), c.errContains) {
+				t.Fatalf("expected an error containing %q, got %v", c.errContains, err)
+			}
+		})
+	}
 }

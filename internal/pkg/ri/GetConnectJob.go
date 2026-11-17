@@ -6,7 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/Jamf-Concepts/mcp-rapidid/internal/pkg/telemetry"
@@ -21,6 +24,11 @@ type GetConnectJobInput struct {
 }
 
 func GetConnectJob(ctx context.Context, req *mcp.CallToolRequest, input GetConnectJobInput) (*mcp.CallToolResult, rapididentity.ConnectJob, error) {
+	name := strings.TrimSpace(input.Name)
+	if name == "" {
+		return nil, rapididentity.ConnectJob{}, fmt.Errorf("a job name is required")
+	}
+
 	var err error
 	ctx, client, sh, setupErr := ToolSetup(ctx, req, getConnectJobToolName)
 	if setupErr != nil {
@@ -29,7 +37,7 @@ func GetConnectJob(ctx context.Context, req *mcp.CallToolRequest, input GetConne
 	start := time.Now()
 	defer telemetry.RecordCompletion(ctx, getConnectJobToolName, start, &err)
 
-	sh.Logger().Info(getConnectJobToolName+" tool called", "name", input.Name)
+	sh.Logger().Info(getConnectJobToolName+" tool called", "name", name)
 
 	defer func(c *rapididentity.Client) {
 		if err := c.Close(); err != nil {
@@ -37,7 +45,7 @@ func GetConnectJob(ctx context.Context, req *mcp.CallToolRequest, input GetConne
 		}
 	}(client)
 
-	existing, err := requireConnectJob(ctx, client, sh, input.Name)
+	existing, err := requireConnectJob(ctx, client, sh, name)
 	if err != nil {
 		return nil, rapididentity.ConnectJob{}, err
 	}
@@ -51,8 +59,21 @@ func GetConnectJob(ctx context.Context, req *mcp.CallToolRequest, input GetConne
 		return nil, rapididentity.ConnectJob{}, err
 	}
 
-	jobBody, err := readConnectJobResponse(ctx, sh, getConnectJobToolName, jobRes)
+	defer func(res *http.Response) {
+		if err := res.Body.Close(); err != nil {
+			sh.Logger().Warn("issue closing response body for "+path+" endpoint response", "error", err)
+		}
+	}(jobRes)
+
+	if err = checkResponseStatus(jobRes); err != nil {
+		LogRIError(ctx, sh, "unable to retrieve Connect job", err)
+		return nil, rapididentity.ConnectJob{}, err
+	}
+
+	jobBody, err := io.ReadAll(jobRes.Body)
 	if err != nil {
+		sh.Logger().Error("unable to read response body for GET "+path+" response", "error", err, "status", jobRes.StatusCode)
+		telemetry.RecordError(ctx, fmt.Sprintf(telemetry.EventPrefix+telemetry.ToolErrorPrefix+"%s", getConnectJobToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, rapididentity.ConnectJob{}, err
 	}
 

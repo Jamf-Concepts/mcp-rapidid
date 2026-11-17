@@ -10,6 +10,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/hatch-ed-com/ri-sdk-go/pkg/rapididentity"
 )
 
 // staffSyncActionSet is what GET admin/connect/actions/sync.StaffSync returns.
@@ -31,10 +33,6 @@ func boolPtr(b bool) *bool {
 	return &b
 }
 
-func jobStrPtr(s string) *string {
-	return &s
-}
-
 func TestCreateConnectJob(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -44,7 +42,7 @@ func TestCreateConnectJob(t *testing.T) {
 		wantErr     bool
 		errContains string
 		wantPost    bool
-		wantBody    connectJobCreateBody
+		wantBody    createConnectJobBody
 	}{
 		{
 			name:       "success, disabled by default, every argument listed",
@@ -52,8 +50,8 @@ func TestCreateConnectJob(t *testing.T) {
 			postStatus: http.StatusOK,
 			postBody:   `{"name":"NewJob","id":"new-id","version":1,"disabled":true}`,
 			wantPost:   true,
-			wantBody: connectJobCreateBody{Name: "NewJob", Project: "sync", Description: "nightly", CronSpec: "0 0 2 * * ?", TimeZone: "America/Chicago", Disabled: true,
-				Action: connectJobAction{Name: "StaffSync", Project: "sync", Args: []connectJobArg{{Name: "logOnly", Value: jobStrPtr("true")}, {Name: "logLevel"}, {Name: "fullSync"}}}},
+			wantBody: createConnectJobBody{Name: "NewJob", Project: "sync", Description: "nightly", CronSpec: "0 0 2 * * ?", TimeZone: "America/Chicago", Disabled: true,
+				Action: createConnectJobAction{Name: "StaffSync", Project: "sync", Args: rapididentity.ArgDefList{{Name: "logOnly", Value: "true"}, {Name: "logLevel"}, {Name: "fullSync"}}}},
 		},
 		{
 			name:       "explicitly enabled",
@@ -61,8 +59,8 @@ func TestCreateConnectJob(t *testing.T) {
 			postStatus: http.StatusOK,
 			postBody:   `{"name":"NewJob","id":"new-id","version":1}`,
 			wantPost:   true,
-			wantBody: connectJobCreateBody{Name: "NewJob", Project: "sync", Disabled: false,
-				Action: connectJobAction{Name: "StaffSync", Project: "sync", Args: []connectJobArg{{Name: "logOnly"}, {Name: "logLevel"}, {Name: "fullSync"}}}},
+			wantBody: createConnectJobBody{Name: "NewJob", Project: "sync", Disabled: false,
+				Action: createConnectJobAction{Name: "StaffSync", Project: "sync", Args: rapididentity.ArgDefList{{Name: "logOnly"}, {Name: "logLevel"}, {Name: "fullSync"}}}},
 		},
 		{
 			name:        "name taken, ignoring case",
@@ -89,12 +87,12 @@ func TestCreateConnectJob(t *testing.T) {
 			errContains: "are required",
 		},
 		{
-			name:        "server message is passed on",
+			name:        "server error status",
 			input:       CreateConnectJobInput{Name: "NewJob", Project: "sync", ActionSet: "StaffSync"},
 			postStatus:  http.StatusInternalServerError,
 			postBody:    `{"success":false,"message":"java.lang.IllegalArgumentException: Duplicate job name","httpStatus":500}`,
 			wantErr:     true,
-			errContains: "Duplicate job name",
+			errContains: "non-success status 500",
 			wantPost:    true,
 		},
 	}
@@ -145,7 +143,14 @@ func TestCreateConnectJob(t *testing.T) {
 					t.Fatalf("a new job must not send %q: %s", key, rawBody)
 				}
 			}
-			var got connectJobCreateBody
+			var action map[string]json.RawMessage
+			if err := json.Unmarshal(fields["action"], &action); err != nil {
+				t.Fatalf("action is not a JSON object: %s", fields["action"])
+			}
+			if _, ok := action["id"]; ok {
+				t.Fatalf("a new job's action must not send an id: %s", fields["action"])
+			}
+			var got createConnectJobBody
 			if err := json.Unmarshal(rawBody, &got); err != nil {
 				t.Fatal(err)
 			}

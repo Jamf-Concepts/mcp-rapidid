@@ -6,7 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/Jamf-Concepts/mcp-rapidid/internal/pkg/telemetry"
@@ -29,6 +32,11 @@ type DeleteConnectJobOutput struct {
 // job runs. A response that says success is false is returned as an error,
 // so a job is never reported deleted when it was not.
 func DeleteConnectJob(ctx context.Context, req *mcp.CallToolRequest, input DeleteConnectJobInput) (*mcp.CallToolResult, DeleteConnectJobOutput, error) {
+	name := strings.TrimSpace(input.Name)
+	if name == "" {
+		return nil, DeleteConnectJobOutput{}, fmt.Errorf("a job name is required")
+	}
+
 	var err error
 	ctx, client, sh, setupErr := ToolSetup(ctx, req, deleteConnectJobToolName)
 	if setupErr != nil {
@@ -37,7 +45,7 @@ func DeleteConnectJob(ctx context.Context, req *mcp.CallToolRequest, input Delet
 	start := time.Now()
 	defer telemetry.RecordCompletion(ctx, deleteConnectJobToolName, start, &err)
 
-	sh.Logger().Info(deleteConnectJobToolName+" tool called", "name", input.Name)
+	sh.Logger().Info(deleteConnectJobToolName+" tool called", "name", name)
 
 	defer func(c *rapididentity.Client) {
 		if err := c.Close(); err != nil {
@@ -45,7 +53,7 @@ func DeleteConnectJob(ctx context.Context, req *mcp.CallToolRequest, input Delet
 		}
 	}(client)
 
-	existing, err := requireConnectJob(ctx, client, sh, input.Name)
+	existing, err := requireConnectJob(ctx, client, sh, name)
 	if err != nil {
 		return nil, DeleteConnectJobOutput{}, err
 	}
@@ -59,8 +67,21 @@ func DeleteConnectJob(ctx context.Context, req *mcp.CallToolRequest, input Delet
 		return nil, DeleteConnectJobOutput{}, err
 	}
 
-	deleteBody, err := readConnectJobResponse(ctx, sh, deleteConnectJobToolName, deleteRes)
+	defer func(res *http.Response) {
+		if err := res.Body.Close(); err != nil {
+			sh.Logger().Warn("issue closing response body for "+path+" endpoint response", "error", err)
+		}
+	}(deleteRes)
+
+	if err = checkResponseStatus(deleteRes); err != nil {
+		LogRIError(ctx, sh, "unable to delete Connect job", err)
+		return nil, DeleteConnectJobOutput{}, err
+	}
+
+	deleteBody, err := io.ReadAll(deleteRes.Body)
 	if err != nil {
+		sh.Logger().Error("unable to read response body for DELETE "+path+" response", "error", err, "status", deleteRes.StatusCode)
+		telemetry.RecordError(ctx, fmt.Sprintf(telemetry.EventPrefix+telemetry.ToolErrorPrefix+"%s", deleteConnectJobToolName), "see server logs", telemetry.ErrorCategoryThrownException)
 		return nil, DeleteConnectJobOutput{}, err
 	}
 
