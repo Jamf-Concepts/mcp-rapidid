@@ -45,24 +45,7 @@ var connectSchemaDefs = map[string]*jsonschema.Schema{
 	"connectJob": {
 		Type:        "object",
 		Description: "A Connect scheduled job.",
-		Properties: map[string]*jsonschema.Schema{
-			"name":             {Type: "string", Description: "The name of the job. Job names are unique across all projects."},
-			"id":               {Type: "string", Description: "The unique ID of the job."},
-			"version":          {Type: "integer", Description: "The version of the job."},
-			"description":      {Type: "string", Description: "The description of the job."},
-			"project":          {Type: "string", Description: "The project where the job resides."},
-			"action":           {Ref: "#/$defs/connectAction", Description: "The action set the job runs, with the arguments it passes."},
-			"cronSpec":         {Type: "string", Description: "The cron formatted job schedule: <second> <minute> <hour> <day of month> <month> <day of week>. For example every 5 minutes is 0 */5 * * * ?"},
-			"timeZone":         {Type: "string", Description: "The time zone for the schedule."},
-			"disabled":         {Type: "boolean", Description: "Whether the job is disabled."},
-			"skipOverlap":      {Type: "boolean", Description: "Whether to skip a run while the previous run is still going."},
-			"timeoutSeconds":   {Type: "integer", Description: "How long the job may run before it times out."},
-			"traceEnabled":     {Type: "boolean", Description: "Whether trace logging is enabled for the job."},
-			"runExternal":      {Type: "boolean", Description: "Whether the job can be run externally."},
-			"logRetentionDays": {Type: "integer", Description: "The number of days to keep the job's logs."},
-			"emailRecipients":  {Type: "string", Description: "A comma separated list of email addresses that get the job completion email."},
-			"attachLog":        {Type: "boolean", Description: "Whether the job completion email has the log attached."},
-		},
+		Properties:  connectJobProperties(),
 	},
 	"actionDef": {
 		Type:        "object",
@@ -97,6 +80,32 @@ var connectSchemaDefs = map[string]*jsonschema.Schema{
 			},
 		},
 	},
+}
+
+// connectJobProperties returns a new copy of a job's properties on every
+// call. The go-sdk requires a schema's nodes to form a tree: a node reached
+// from two places ("appears more than once") makes AddTool panic. So
+// ConnectJobSchema, which inlines these properties next to the shared
+// connectJob definition, must not reuse the definition's nodes.
+func connectJobProperties() map[string]*jsonschema.Schema {
+	return map[string]*jsonschema.Schema{
+		"name":             {Type: "string", Description: "The name of the job. Job names are unique across all projects."},
+		"id":               {Type: "string", Description: "The unique ID of the job."},
+		"version":          {Type: "integer", Description: "The version of the job."},
+		"description":      {Type: "string", Description: "The description of the job."},
+		"project":          {Type: "string", Description: "The project where the job resides."},
+		"action":           {Ref: "#/$defs/connectAction", Description: "The action set the job runs, with the arguments it passes."},
+		"cronSpec":         {Type: "string", Description: "The cron formatted job schedule: <second> <minute> <hour> <day of month> <month> <day of week>. For example every 5 minutes is 0 */5 * * * ?"},
+		"timeZone":         {Type: "string", Description: "The time zone for the schedule."},
+		"disabled":         {Type: "boolean", Description: "Whether the job is disabled."},
+		"skipOverlap":      {Type: "boolean", Description: "Whether to skip a run while the previous run is still going."},
+		"timeoutSeconds":   {Type: "integer", Description: "How long the job may run before it times out."},
+		"traceEnabled":     {Type: "boolean", Description: "Whether trace logging is enabled for the job."},
+		"runExternal":      {Type: "boolean", Description: "Whether the job can be run externally."},
+		"logRetentionDays": {Type: "integer", Description: "The number of days to keep the job's logs."},
+		"emailRecipients":  {Type: "string", Description: "A comma separated list of email addresses that get the job completion email."},
+		"attachLog":        {Type: "boolean", Description: "Whether the job completion email has the log attached."},
+	}
 }
 
 // ConnectActionDefSchema is the schema for a single ActionDef, used as output
@@ -145,10 +154,17 @@ var RunConnectActionInputSchema = &jsonschema.Schema{
 	},
 }
 
-// ConnectJobSchema is the output schema for get-connect-job.
+// ConnectJobSchema is the output schema for get-connect-job,
+// create-connect-job and update-connect-job. An MCP output schema must be an
+// object schema ("type": "object"); a bare "$ref" to the connectJob
+// definition is valid JSON Schema but makes MCP clients such as Claude
+// Desktop reject the whole tool list. So the job's properties are inlined
+// here, and connectSchemaDefs still supplies the nested connectAction.
 var ConnectJobSchema = &jsonschema.Schema{
-	Ref:  "#/$defs/connectJob",
-	Defs: connectSchemaDefs,
+	Type:        "object",
+	Description: connectSchemaDefs["connectJob"].Description,
+	Properties:  connectJobProperties(),
+	Defs:        connectSchemaDefs,
 }
 
 // ConnectJobsOutputSchema is the output schema for get-connect-jobs.
