@@ -99,6 +99,8 @@ func main() {
 	mcp.AddTool(server, &mcp.Tool{Name: "run-connect-action", Description: "Runs a RapidIdentity Connect action set and returns the HTML log", InputSchema: ri.RunConnectActionInputSchema}, ri.RunConnectAction)
 	mcp.AddTool(server, &mcp.Tool{Name: "get-connect-files", Description: "Returns metadata for files and directories within the RapidIdentity Connect files module"}, ri.GetConnectFiles)
 	mcp.AddTool(server, &mcp.Tool{Name: "get-connect-file-content", Description: "Returns the text content of a file from the RapidIdentity Connect files module, such as SharedGlobals.properties or Globals.properties"}, ri.GetConnectFileContent)
+	mcp.AddTool(server, &mcp.Tool{Name: "create-connect-file-content", Description: "Creates a new text file in the RapidIdentity Connect files module of a project, for example a script or a .properties file. Missing folders are created. Fails if a file or folder already exists at the path"}, ri.CreateConnectFileContent)
+	mcp.AddTool(server, &mcp.Tool{Name: "update-connect-file-content", Description: "Replaces the whole content of an existing text file in the RapidIdentity Connect files module of a project. Fails if no file exists at the path or the path is a folder. Read the file first with get-connect-file-content to change part of it"}, ri.UpdateConnectFileContent)
 
 	server.AddPrompt(prompts.PasswordResetAuditPromptDef(), prompts.PasswordResetAuditPromptHandler)
 
