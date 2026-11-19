@@ -110,6 +110,8 @@ The "Service ID Compatible" column indicates whether a RapidID Service Identity 
 | `run-connect-action`               | Runs a RapidID Connect action set and returns the HTML log                                                                                  | Yes                   |
 | `get-connect-files`                | Returns metadata for files and directories within the RapidID Connect files module                                                          | Yes                   |
 | `get-connect-file-content`         | Returns the text content of a file from the RapidID Connect files module                                                                    | Yes                   |
+| `create-connect-file-content`      | Creates a new text file in a RapidID Connect project's files module                                                                         | Yes                   |
+| `update-connect-file-content`      | Replaces the content of an existing file in a RapidID Connect project's files module                                                        | Yes                   |
 
 ## Prompts
 

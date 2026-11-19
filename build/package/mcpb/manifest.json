@@ -115,6 +115,14 @@
     {
       "name": "get-connect-file-content",
       "description": "Returns the text content of a file from the RapidIdentity Connect files module, such as SharedGlobals.properties or Globals.properties"
+    },
+    {
+      "name": "create-connect-file-content",
+      "description": "Creates a new text file in the RapidIdentity Connect files module of a project, for example a script or a .properties file. Missing folders are created. Fails if a file or folder already exists at the path"
+    },
+    {
+      "name": "update-connect-file-content",
+      "description": "Replaces the whole content of an existing text file in the RapidIdentity Connect files module of a project. Fails if no file exists at the path or the path is a folder. Read the file first with get-connect-file-content to change part of it"
     }
   ],
   "prompts": [
